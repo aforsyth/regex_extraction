@@ -22,21 +22,72 @@ def _extract_numerical_value(preceding_phrase, value_indicators, notes):
     returned.
     TODO(aforsyth): is first match the right behavior?
     """
-    pass
+    # TODO: implement this.
+    return 1 if preceding_phrase in notes else 0
 
 
 def _check_phrase_in_notes(phrase, notes):
     """Return 1 if the notes contain phrase at least once, else 0."""
-    pass
+    return 1 if phrase in notes else 0
 
 
-def _extract_values_from_rpdr_notes(rpdr_file, extraction_type, phrase,
-                                    value_indicators=None):
-    pass
+def _extract_values_from_rpdr_notes(rpdr_keys_to_notes,
+                                    extract_numerical_value,
+                                    phrase, value_indicators):
+    """Return a list of rows with the regex values as the last element.
+
+    Return a list of rows where each row begins with each of the values
+    specified in the RPDR header for those notes. The last element of the
+    row is the value of the regex extraction (either 0/1 when checking for
+    phrase presence, or a numerical value for value extraction).
+    """
+    return_rows = []
+    for rpdr_keys, rpdr_notes in rpdr_keys_to_notes.iteritems():
+        if extract_numerical_value:
+            regex_value = _extract_numerical_value(
+                phrase, value_indicators, rpdr_notes)
+        else:
+            regex_value = _check_phrase_in_notes(phrase, rpdr_notes)
+        row = list(rpdr_keys)
+        row.append(regex_value)
+        return_rows.append(row)
+    return return_rows
 
 
-def _split_rpdr_key_line(line):
-    return tuple(line.replace('\r', '').replace('\n', '').split('|'))
+def _split_rpdr_key_line(text_line):
+    """Remove newline chars and split the line by bars."""
+    return tuple(text_line.replace('\r', '').replace('\n', '').split('|'))
+
+
+def _filter_rpdr_notes_by_column_val(rpdr_keys_to_notes,
+                                     required_report_description,
+                                     required_report_type):
+    """Filter the rpdr notes by column values.
+
+    Input:
+    rpdr_keys_to_notes: the dict mapping rpdr column values as a tuple in the
+        same format as the RPDR text header format to rpdr notes.
+    required_report_description: a value for report description such as "ECG"
+    required_report_type: a value for the report type such as "CAR"
+
+    Return rpdr_keys_to_notes with all values filtered out whose keys differ
+    from either `required_report_type` or `required_report_description` if
+    those values are not None.
+    """
+    return_dict = rpdr_keys_to_notes.copy()
+    for rpdr_keys, rpdr_notes in rpdr_keys_to_notes.iteritems():
+        (empi, mrn_type, mrn, report_number, mid, report_date_time,
+         report_description, report_status,
+         report_type, report_text) = rpdr_keys
+        if (required_report_description is not None and
+                report_description != required_report_description):
+            del return_dict[rpdr_keys]
+            continue
+        if (required_report_type is not None and
+                report_type != required_report_type):
+            del return_dict[rpdr_keys]
+            continue
+    return return_dict
 
 
 def _parse_rpdr_text_file(rpdr_filename):
@@ -81,11 +132,23 @@ def _parse_rpdr_text_file(rpdr_filename):
     return rpdr_keys_to_notes
 
 
+def _parse_value_indicators(value_indicators):
+    if value_indicators is None:
+        return []
+    return value_indicators.replace(' ', '').split(',')
+
+
 def main(input_filename, output_filename, extract_numerical_value, phrase,
          value_indicators, report_description, report_type):
+    value_indicators = _parse_value_indicators(value_indicators)
+
     rpdr_keys_to_notes = _parse_rpdr_text_file(input_filename)
-    print rpdr_keys_to_notes.keys()
-    return rpdr_keys_to_notes
+    rpdr_keys_to_notes = _filter_rpdr_notes_by_column_val(
+        rpdr_keys_to_notes, report_description, report_type)
+    rpdr_rows_with_regex_value = _extract_values_from_rpdr_notes(
+        rpdr_keys_to_notes, extract_numerical_value, phrase, value_indicators)
+    print rpdr_rows_with_regex_value
+    return rpdr_rows_with_regex_value
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
