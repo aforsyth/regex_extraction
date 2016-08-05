@@ -2,7 +2,7 @@
 
 ## Extract numerical values and check for phrases in electronic health records
 
-### Usage
+### Extraction Usage
 
 Example:
 
@@ -20,4 +20,4 @@ phrase: The phrase to check for either preceding the numerical value, or to chec
 
 value_indicators (only used if extract_numerical_value is True): A string containing comma separated tokens or words expected to precede the numerical value.
 
-### Code
+### Extraction Code

@@ -35,9 +35,57 @@ def _extract_values_from_rpdr_notes(rpdr_file, extraction_type, phrase,
     pass
 
 
+def _split_rpdr_key_line(line):
+    return tuple(line.replace('\r', '').replace('\n', '').split('|'))
+
+
+def _parse_rpdr_text_file(rpdr_filename):
+    """Return a map of tuple of rpdr column values to notes."""
+    with open(rpdr_filename, 'rb') as rpdr_file:
+        rpdr_lines = rpdr_file.readlines()
+    # Expect this header describing the column values
+    if rpdr_lines[0] != ('EMPI|MRN_Type|MRN|Report_Number|MID|Report_Date_Time'
+                         '|Report_Description|Report_Status|Report_Type|'
+                         'Report_Text\r\n'):
+        raise ValueError('Invalid header for RPDR formatted text file. Got %s'
+                         % rpdr_lines[0])
+    header_column_names = _split_rpdr_key_line(rpdr_lines[0])
+
+    # Map tuple of column values to free-text notes
+    rpdr_keys_to_notes = {}
+
+    # None if at the start of the file or in between patient notes.
+    rpdr_keys = None
+    for line in rpdr_lines[1:]:
+        # If starting a new note and the current line is empty, continue.
+        if not rpdr_keys and not line.replace('\r', '').replace('\n', ''):
+            continue
+        # If not current notes, try to extract the RPDR column values.
+        if not rpdr_keys:
+            if '|' not in line:
+                raise ValueError('Expected RPDR column values as described in '
+                                 'the header, separated by | at the start of '
+                                 'a new note. Got %s' % line)
+            rpdr_keys = _split_rpdr_key_line(line)
+            if len(rpdr_keys) != len(header_column_names):
+                raise ValueError('Expected RPDR column values of the same '
+                                 'length as the header, got: %s' % rpdr_keys)
+            if rpdr_keys in rpdr_keys_to_notes:
+                raise KeyError('Expected rpdr_keys to be unique. Got %s '
+                               'multiple times' % rpdr_keys)
+            rpdr_keys_to_notes[rpdr_keys] = ''
+        else:  # line is part of notes
+            rpdr_keys_to_notes[rpdr_keys] += line
+            if '[report end]' in line:
+                rpdr_keys = None
+    return rpdr_keys_to_notes
+
+
 def main(input_filename, output_filename, extract_numerical_value, phrase,
-         value_indicators):
-    print input_filename, output_filename
+         value_indicators, report_description, report_type):
+    rpdr_keys_to_notes = _parse_rpdr_text_file(input_filename)
+    print rpdr_keys_to_notes.keys()
+    return rpdr_keys_to_notes
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -57,6 +105,12 @@ if __name__ == '__main__':
     parser.add_argument('--value_indicators', help=(
         'A string of comma separated tokens or single words expected to come '
         'after the phrase, but before the numerical value (e.g. ":,is,of")'))
+    parser.add_argument('--report_description', help=(
+        'Only return values from reports matching this exact report '
+        'description (e.g. "Cardiac Catheterization").'))
+    parser.add_argument('--report_type', help=(
+        'Only return values from reports matching this exact report '
+        'description (e.g. "CAR").'))
     parser.add_argument('--verbosity', '-v', action='count')
     args = parser.parse_args()
 
@@ -76,4 +130,5 @@ if __name__ == '__main__':
                    args.output_filename))
 
     main(args.input_filename, args.output_filename,
-         args.extract_numerical_value, args.phrase, args.value_indicators)
+         args.extract_numerical_value, args.phrase, args.value_indicators,
+         args.report_description, args.report_type)
