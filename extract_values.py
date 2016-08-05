@@ -65,5 +65,15 @@ if __name__ == '__main__':
     elif args.verbosity > 1:
         logging.basicConfig(filename='extraction.log', level=logging.DEBUG)
 
+    if not args.extract_numerical_value:
+        extract_type_string = 'Extracting exact phrase "%s"' % args.phrase
+    else:
+        extract_type_string = ('Extracting numerical value preceded by "%s" '
+                               'and one of "%s"' %
+                               (args.phrase, args.value_indicators))
+    logging.debug('%s from %s and outputting rows to %s.' %
+                  (extract_type_string, args.input_filename,
+                   args.output_filename))
+
     main(args.input_filename, args.output_filename,
          args.extract_numerical_value, args.phrase, args.value_indicators)
