@@ -1,39 +1,47 @@
 import argparse
 import logging
+import re
 
 
-def _extract_numerical_value(preceding_phrase, value_indicators, notes):
+def _extract_numerical_value(preceding_phrase, notes):
     """Return a numerical value preceded by the a set of phrases.
+
+    Return (numerical_value (as a float), match_start, match_end)
 
     Input:
     preceding_phrase: a phrase or word indicating that the desired numerical
         value will follow. E.g. this might be "EF" for ejection fraction.
-    value_indicators: tokens or words following `preceding_phrase` indicating
-        that the numerical value will follow. Common examples include
-        "is, :, of".
     This can be used, for example, to extract lab values from free-text notes.
     This looks for a string matching `preceding_phrase` followed by one of
-    the `value_indicators`, followed by a numerical value. Spaces are assumed
-    to be between `preceding_phrase` and the value indicator, as well as
-    between the value indicator and the numerical value. For example, if
-    `preceding_phrase` is "EF" and `value_indicators` are [:, is], then it
+    the value_indicators (is, of, :), followed by a numerical value. For
+    example, if `preceding_phrase` is "EF" then it
     could extract the numerical value 60 from "EF: 60%" or "EF is 60%".
     If there are multiple pattern matches in the notes, the first match is
     returned.
     TODO(aforsyth): is first match the right behavior?
     """
-    # TODO: implement this.
-    return 1 if preceding_phrase in notes else 0
+    pattern_string = ('.*(?:%s)\s*(?:of|is|\:)?[:]*[\s]*([0-9]'
+                      '+\.?[0-9]*)' % preceding_phrase)
+    re_flags = re.I | re.M | re.DOTALL
+    pattern = re.compile(pattern_string, flags=re_flags)
+    match = re.match(pattern, notes)
+    if match:
+        numerical_value = float(match.groups()[0])
+        return (numerical_value, match.start(), match.end())
+    return (None, None, None)
 
 
 def _check_phrase_in_notes(phrase, notes):
     """Return 1 if the notes contain phrase at least once, else 0."""
-    return 1 if phrase in notes else 0
+    pattern = '(%s)' % phrase
+    match = re.match(pattern, notes, flags=re.IGNORECASE)
+    if match:
+        return (1, match.start(), match.end())
+    return (0, None, None)
 
 
 def _extract_values_from_rpdr_notes(rpdr_keys_to_notes,
-                                    extract_numerical_value,
-                                    phrase, value_indicators):
+                                    extract_numerical_value, phrase):
     """Return a list of rows with the regex values as the last element.
 
     Return a list of rows where each row begins with each of the values
@@ -44,12 +52,13 @@ def _extract_values_from_rpdr_notes(rpdr_keys_to_notes,
     return_rows = []
     for rpdr_keys, rpdr_notes in rpdr_keys_to_notes.iteritems():
         if extract_numerical_value:
-            regex_value = _extract_numerical_value(
-                phrase, value_indicators, rpdr_notes)
+            (numerical_value, match_start, match_end) = \
+                _extract_numerical_value(phrase, rpdr_notes)
         else:
-            regex_value = _check_phrase_in_notes(phrase, rpdr_notes)
+            (numerical_value, match_start, match_end) = _check_phrase_in_notes(
+                phrase, rpdr_notes)
         row = list(rpdr_keys)
-        row.append(regex_value)
+        row.append(numerical_value)
         return_rows.append(row)
     return return_rows
 
@@ -132,21 +141,13 @@ def _parse_rpdr_text_file(rpdr_filename):
     return rpdr_keys_to_notes
 
 
-def _parse_value_indicators(value_indicators):
-    if value_indicators is None:
-        return []
-    return value_indicators.replace(' ', '').split(',')
-
-
 def main(input_filename, output_filename, extract_numerical_value, phrase,
-         value_indicators, report_description, report_type):
-    value_indicators = _parse_value_indicators(value_indicators)
-
+         report_description, report_type):
     rpdr_keys_to_notes = _parse_rpdr_text_file(input_filename)
     rpdr_keys_to_notes = _filter_rpdr_notes_by_column_val(
         rpdr_keys_to_notes, report_description, report_type)
     rpdr_rows_with_regex_value = _extract_values_from_rpdr_notes(
-        rpdr_keys_to_notes, extract_numerical_value, phrase, value_indicators)
+        rpdr_keys_to_notes, extract_numerical_value, phrase)
     print rpdr_rows_with_regex_value
     return rpdr_rows_with_regex_value
 
@@ -165,9 +166,6 @@ if __name__ == '__main__':
     parser.add_argument('--phrase', required=True, help=(
         'Either the phrase to check for if not exracting a numerical value, '
         'or the phrase preceding the numerical value if extracting a number.'))
-    parser.add_argument('--value_indicators', help=(
-        'A string of comma separated tokens or single words expected to come '
-        'after the phrase, but before the numerical value (e.g. ":,is,of")'))
     parser.add_argument('--report_description', help=(
         'Only return values from reports matching this exact report '
         'description (e.g. "Cardiac Catheterization").'))
@@ -186,12 +184,11 @@ if __name__ == '__main__':
         extract_type_string = 'Extracting exact phrase "%s"' % args.phrase
     else:
         extract_type_string = ('Extracting numerical value preceded by "%s" '
-                               'and one of "%s"' %
-                               (args.phrase, args.value_indicators))
+                               % args.phrase)
     logging.debug('%s from %s and outputting rows to %s.' %
                   (extract_type_string, args.input_filename,
                    args.output_filename))
 
     main(args.input_filename, args.output_filename,
-         args.extract_numerical_value, args.phrase, args.value_indicators,
+         args.extract_numerical_value, args.phrase,
          args.report_description, args.report_type)
