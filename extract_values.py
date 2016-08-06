@@ -1,4 +1,5 @@
 import argparse
+import csv
 import logging
 import re
 
@@ -142,6 +143,15 @@ def _parse_rpdr_text_file(rpdr_filename):
     return rpdr_keys_to_notes
 
 
+def _write_turk_verification_csv(rpdr_keys_to_notes, extract_numerical_value,
+                                 phrase, turk_csv_filename):
+    """Writes turk validation rows to csv including:
+    (note, regex_value, patient, note_id, regex_extract_start,
+     regex_extract_end)
+    """
+    pass
+
+
 def main(input_filename, output_filename, extract_numerical_value, phrase,
          report_description, report_type):
     rpdr_keys_to_notes = _parse_rpdr_text_file(input_filename)
@@ -149,8 +159,9 @@ def main(input_filename, output_filename, extract_numerical_value, phrase,
         rpdr_keys_to_notes, report_description, report_type)
     rpdr_rows_with_regex_value = _extract_values_from_rpdr_notes(
         rpdr_keys_to_notes, extract_numerical_value, phrase)
-    print rpdr_rows_with_regex_value
-    return rpdr_rows_with_regex_value
+    with open(output_filename, 'wb') as output_file:
+        csv_writer = csv.writer(output_file)
+        csv_writer.writerows(rpdr_rows_with_regex_value)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
