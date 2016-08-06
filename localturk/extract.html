@@ -1,0 +1,57 @@
+<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+<style type="text/css">
+    p {
+        width: 100%;
+        background-color: gray;
+        color: white;
+    }
+    input[type="submit"] {
+        margin-right: 20px;
+    }
+    form {
+        text-align: right;
+    }
+    .container {
+        text-align: left;
+    }
+    .highlight {
+        font-weight: bold;
+        background-color: yellow;
+    }
+    #note {
+        height: 600px;
+        overflow-y: scroll;
+    }
+</style>
+
+<script type="text/javascript" src="https://code.jquery.com/jquery-2.2.0.min.js"></script>
+<script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+<div class="container">
+    <h1>MIT MGH Data Extraction Platform</h1>
+    <div class="row">
+        <div class="col-md-9" id="note">
+        </div>
+
+        <div class="col-md-3">
+            <b>Ejection Fraction:</b><br>
+            <input type="text" name="line1" id="line1" placeholder="${guess}" />
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+    String.prototype.replaceAll = function(find, replace) {
+        return this.replace(new RegExp(find, 'g'), replace); 
+    };
+
+    lt = String.fromCharCode(60);
+    gt = String.fromCharCode(62);
+    htmlString = "${image1}".replaceAll("&lt;", lt).replaceAll("&gt;", gt);
+    html = $.parseHTML(htmlString);
+    $("#note").append(html);
+    
+    $("#line1").focus();
+});
+</script>

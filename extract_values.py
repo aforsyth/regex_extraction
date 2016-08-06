@@ -21,11 +21,11 @@ def _extract_numerical_value(preceding_phrase, notes):
     returned.
     TODO(aforsyth): is first match the right behavior?
     """
-    pattern_string = ('.*(?:%s)\s*(?:of|is|\:)?[:]*[\s]*([0-9]'
+    pattern_string = ('(?:%s)\s*(?:of|is|\:)?[:]*[\s]*([0-9]'
                       '+\.?[0-9]*)' % preceding_phrase)
     re_flags = re.I | re.M | re.DOTALL
     pattern = re.compile(pattern_string, flags=re_flags)
-    match = re.match(pattern, notes)
+    match = next(pattern.finditer(notes))
     if match:
         numerical_value = float(match.groups()[0])
         return (numerical_value, match.start(), match.end())
@@ -34,9 +34,10 @@ def _extract_numerical_value(preceding_phrase, notes):
 
 def _check_phrase_in_notes(phrase, notes):
     """Return 1 if the notes contain phrase at least once, else 0."""
-    pattern = '.*(%s)' % phrase
+    pattern_string = '.*(%s)' % phrase
     re_flags = re.I | re.M | re.DOTALL
-    match = re.match(pattern, notes, flags=re_flags)
+    pattern = re.compile(pattern_string, flags=re_flags)
+    match = next(pattern.finditer(notes))
     if match:
         return (1, match.start(), match.end())
     return (0, None, None)
@@ -143,17 +144,50 @@ def _parse_rpdr_text_file(rpdr_filename):
     return rpdr_keys_to_notes
 
 
-def _write_turk_verification_csv(rpdr_keys_to_notes, extract_numerical_value,
-                                 phrase, turk_csv_filename):
+def _get_rows_for_turk_csv(rpdr_keys_to_notes, extract_numerical_value,
+                           phrase):
     """Writes turk validation rows to csv including:
     (note, regex_value, patient, note_id, regex_extract_start,
      regex_extract_end)
     """
-    pass
+    return_rows = []
+    for rpdr_keys, rpdr_notes in rpdr_keys_to_notes.iteritems():
+        if extract_numerical_value:
+            (numerical_value, match_start, match_end) = \
+                _extract_numerical_value(phrase, rpdr_notes)
+        else:
+            (numerical_value, match_start, match_end) = _check_phrase_in_notes(
+                phrase, rpdr_notes)
+        (empi, mrn_type, mrn, report_number, mid, report_date_time,
+         report_description, report_status,
+         report_type, report_text) = rpdr_keys
+        row = [rpdr_notes, numerical_value, empi, report_number, match_start,
+               match_end]
+        return_rows.append(row)
+    return return_rows
+
+
+def _write_turk_verification_csv(turk_csv_rows, turk_csv_name):
+    """Convert the notes to HTML with regex extracted value bolded."""
+    return_rows = []
+    for [rpdr_notes, numerical_value, empi, report_number, match_start,
+         match_end] in turk_csv_rows:
+        # Make the extracted value bold.
+        extracted_value_html = ("<span class='highlight'>%s</span>" %
+                                rpdr_notes[match_start:match_end])
+        rpdr_notes = (rpdr_notes[:match_start] + extracted_value_html +
+                      rpdr_notes[match_end:])
+        rpdr_notes = rpdr_notes.replace('\r\n', '<br>')
+        return_rows.append((rpdr_notes, numerical_value, empi, report_number))
+    with open(turk_csv_name, 'wb') as turk_csv:
+        csvwriter = csv.writer(turk_csv)
+        csvwriter.writerow(['image1', 'guess', 'empi', 'report_number'])
+        csvwriter.writerows(return_rows)
+    return return_rows
 
 
 def main(input_filename, output_filename, extract_numerical_value, phrase,
-         report_description, report_type):
+         report_description, report_type, turk_csv_filename):
     rpdr_keys_to_notes = _parse_rpdr_text_file(input_filename)
     rpdr_keys_to_notes = _filter_rpdr_notes_by_column_val(
         rpdr_keys_to_notes, report_description, report_type)
@@ -162,6 +196,10 @@ def main(input_filename, output_filename, extract_numerical_value, phrase,
     with open(output_filename, 'wb') as output_file:
         csv_writer = csv.writer(output_file)
         csv_writer.writerows(rpdr_rows_with_regex_value)
+    if turk_csv_filename:
+        turk_rows = _get_rows_for_turk_csv(
+            rpdr_keys_to_notes, extract_numerical_value, phrase)
+        _write_turk_verification_csv(turk_rows, turk_csv_filename)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -184,6 +222,10 @@ if __name__ == '__main__':
     parser.add_argument('--report_type', help=(
         'Only return values from reports matching this exact report '
         'description (e.g. "CAR").'))
+    parser.add_argument('--turk_csv_filename', help=(
+        'If a filename to a csv is entered, it will write a CSV file to'
+        ' be used for localturk verification. If not entered, no such CSV'
+        ' will be written.'))
     parser.add_argument('--verbosity', '-v', action='count')
     args = parser.parse_args()
 
@@ -203,4 +245,5 @@ if __name__ == '__main__':
 
     main(args.input_filename, args.output_filename,
          args.extract_numerical_value, args.phrase,
-         args.report_description, args.report_type)
+         args.report_description, args.report_type,
+         args.turk_csv_filename)

@@ -22,4 +22,11 @@ Example could be used to extract the value 60 from strings like "EF is 60" or "E
 
 `report_type` (optional): If specified, only reports that exactly match the report_type value passed in will be examined.
 
-### Extraction Code
+`turk_csv_filename` (optional): If specified, a CSV file will be written with
+this filename that can be used to verify regex extraction with localturk.
+
+### Localturk usage
+
+Install localturk from here: https://github.com/danvk/localturk
+
+Run `localturk --static_dir . extract.html /path/to/turk_csv_filename.csv outputs.csv` where `extract.html` is the localturk html template included in this repository, and `turk_csv_filename.csv` is the csv output with turk `turk_csv_filename` option.
