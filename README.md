@@ -1,14 +1,14 @@
-# Field and value extraction from electronic health records
+# Field and value extraction from RPDR formatted electronic health records
 
-## Extract numerical values and check for phrases in electronic health records
+## Extract numerical values and check for phrases in RPDR free-text notes
 
 ### Extraction Usage
 
 Example:
 
-`python extract_values.py --input_filename "/path/to/file.txt" --output_filename "/path_to_file.csv" --extract_numerical_value True --phrase "EF"`
+`python extract_values.py --input_filename "/path/to/file.txt" --extract_numerical_value True --phrase "EF"`
 
-Example could be used to extract the value 60 from strings like "EF is 60" or "EF: 60", for example. Note that phrase is case insenstive. When extracting numerical values following a phrase, anything like "[phrase] [num]", [phrase] is [num]", "[phrase] of [num]", "phrase: [num]" will be matched.
+The example will extract the value 60 from notes including "EF is 60" or "EF: 60", for example. Note that phrase is case insenstive. When extracting numerical values following a phrase, anything like "[phrase] [num]", [phrase] is [num]", "[phrase] of [num]", "phrase: [num]" will be matched.
 
 `input_filename`: a path to an RPDR-formatted EHR text file.
 

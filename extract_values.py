@@ -34,7 +34,7 @@ def _extract_numerical_value(preceding_phrase, notes):
 
 def _check_phrase_in_notes(phrase, notes):
     """Return 1 if the notes contain phrase at least once, else 0."""
-    pattern_string = '.*(%s)' % phrase
+    pattern_string = '(%s)' % phrase
     re_flags = re.I | re.M | re.DOTALL
     pattern = re.compile(pattern_string, flags=re_flags)
     match = next(pattern.finditer(notes))
@@ -196,10 +196,10 @@ def main(input_filename, output_filename, extract_numerical_value, phrase,
     with open(output_filename, 'wb') as output_file:
         csv_writer = csv.writer(output_file)
         csv_writer.writerows(rpdr_rows_with_regex_value)
-    if turk_csv_filename:
-        turk_rows = _get_rows_for_turk_csv(
-            rpdr_keys_to_notes, extract_numerical_value, phrase)
-        _write_turk_verification_csv(turk_rows, turk_csv_filename)
+
+    turk_rows = _get_rows_for_turk_csv(
+        rpdr_keys_to_notes, extract_numerical_value, phrase)
+    _write_turk_verification_csv(turk_rows, turk_csv_filename)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -222,10 +222,10 @@ if __name__ == '__main__':
     parser.add_argument('--report_type', help=(
         'Only return values from reports matching this exact report '
         'description (e.g. "CAR").'))
-    parser.add_argument('--turk_csv_filename', help=(
-        'If a filename to a csv is entered, it will write a CSV file to'
-        ' be used for localturk verification. If not entered, no such CSV'
-        ' will be written.'))
+    parser.add_argument(
+        '--turk_csv_filename', default='localturk/tasks.csv', help=(
+            'Will write a CSV file to the specified filenme for turk'
+            'verification. Defaults to localturk/tasks.csv'))
     parser.add_argument('--verbosity', '-v', action='count')
     args = parser.parse_args()
 
