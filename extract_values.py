@@ -33,8 +33,9 @@ def _extract_numerical_value(preceding_phrase, notes):
 
 def _check_phrase_in_notes(phrase, notes):
     """Return 1 if the notes contain phrase at least once, else 0."""
-    pattern = '(%s)' % phrase
-    match = re.match(pattern, notes, flags=re.IGNORECASE)
+    pattern = '.*(%s)' % phrase
+    re_flags = re.I | re.M | re.DOTALL
+    match = re.match(pattern, notes, flags=re_flags)
     if match:
         return (1, match.start(), match.end())
     return (0, None, None)
