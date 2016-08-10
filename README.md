@@ -2,6 +2,18 @@
 
 ## Extract numerical values and check for phrases in RPDR free-text notes
 
+### Initial Setup (for developers and non-developers)
+
+Install npm (Node package manager) if you don't have it already by installing Nodejs here: https://nodejs.org/en/download/
+
+Open up a terminal (search for it with Spotlight search on Mac). All of the following commands are run in the terminal.
+
+Install [localturk](https://github.com/danvk/localturk) with: `npm install -g localturk`
+
+Navigate to the directory at which you want to install my code. Then, `git clone https://github.com/aforsyth/regex_extraction.git` to clone my code into a directory called regex_extraction.
+
+`cd` into regex_extraction, and then you can run my code as examplined below.
+
 ### Extraction Usage
 
 Example:
