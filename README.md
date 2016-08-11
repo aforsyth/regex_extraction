@@ -12,7 +12,7 @@ Install [localturk](https://github.com/danvk/localturk) with: `npm install -g lo
 
 Navigate to the directory at which you want to install my code. Then, `git clone https://github.com/aforsyth/regex_extraction.git` to clone my code into a directory called regex_extraction.
 
-`cd` into regex_extraction, and then you can run my code as examplined below.
+`cd` into regex_extraction, and then you can run my code as explained. below.
 
 ### Extraction Usage
 
