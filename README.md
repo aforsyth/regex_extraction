@@ -41,4 +41,4 @@ this filename that can be used to verify regex extraction with localturk.
 
 Install localturk from here: https://github.com/danvk/localturk
 
-Run `localturk --static_dir . extract.html /path/to/turk_csv_filename.csv outputs.csv` where `extract.html` is the localturk html template included in this repository, and `turk_csv_filename.csv` is the csv output with turk `turk_csv_filename` option.
+Run `localturk --static_dir . localturk/extract.html /path/to/turk_csv_filename.csv outputs.csv` where `extract.html` is the localturk html template included in this repository, and `turk_csv_filename.csv` is the csv output with turk `turk_csv_filename` option.
