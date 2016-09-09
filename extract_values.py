@@ -4,7 +4,24 @@ import logging
 import re
 
 
-def _extract_numerical_value(preceding_phrase, notes):
+class RPDRNote(object):
+    def __init__(self, rpdr_column_name_to_key, rpdr_note):
+        self.empi = rpdr_column_name_to_key['EMPI']
+        self.mrn_type = rpdr_column_name_to_key['MRN_Type']
+        self.mrn = rpdr_column_name_to_key['MRN']
+        self.report_type = rpdr_column_name_to_key['Report_Type']
+        self.report_number = (rpdr_column_name_to_key.get('Report_Number') or
+                              rpdr_column_name_to_key.get('Record_Id'))
+        self.report_description = rpdr_column_name_to_key.get(
+            'Report_Description')
+        self.note = rpdr_note
+
+    def get_keys(self):
+        return [self.empi, self.mrn_type, self.mrn, self.report_type,
+                self.report_number]
+
+
+def _extract_numerical_value(preceding_phrase, note):
     """Return a numerical value preceded by the a set of phrases.
 
     Return (numerical_value (as a float), match_start, match_end)
@@ -25,25 +42,27 @@ def _extract_numerical_value(preceding_phrase, notes):
                       '+\.?[0-9]*)' % preceding_phrase)
     re_flags = re.I | re.M | re.DOTALL
     pattern = re.compile(pattern_string, flags=re_flags)
-    match = next(pattern.finditer(notes))
-    if match:
+    try:
+        match = next(pattern.finditer(note))
         numerical_value = float(match.groups()[0])
         return (numerical_value, match.start(), match.end())
-    return (None, None, None)
+    except StopIteration:
+        return (None, None, None)
 
 
-def _check_phrase_in_notes(phrase, notes):
+def _check_phrase_in_notes(phrase, note):
     """Return 1 if the notes contain phrase at least once, else 0."""
     pattern_string = '(%s)' % phrase
     re_flags = re.I | re.M | re.DOTALL
     pattern = re.compile(pattern_string, flags=re_flags)
-    match = next(pattern.finditer(notes))
-    if match:
+    try:
+        match = next(pattern.finditer(note))
         return (1, match.start(), match.end())
-    return (0, None, None)
+    except StopIteration:
+        return (0, None, None)
 
 
-def _extract_values_from_rpdr_notes(rpdr_keys_to_notes,
+def _extract_values_from_rpdr_notes(rpdr_notes,
                                     extract_numerical_value, phrase):
     """Return a list of rows with the regex values as the last element.
 
@@ -53,14 +72,14 @@ def _extract_values_from_rpdr_notes(rpdr_keys_to_notes,
     phrase presence, or a numerical value for value extraction).
     """
     return_rows = []
-    for rpdr_keys, rpdr_notes in rpdr_keys_to_notes.iteritems():
+    for rpdr_note in rpdr_notes:
         if extract_numerical_value:
             (numerical_value, match_start, match_end) = \
-                _extract_numerical_value(phrase, rpdr_notes)
+                _extract_numerical_value(phrase, rpdr_note.note)
         else:
             (numerical_value, match_start, match_end) = _check_phrase_in_notes(
-                phrase, rpdr_notes)
-        row = list(rpdr_keys)
+                phrase, rpdr_note.note)
+        row = rpdr_note.get_keys()
         row.append(numerical_value)
         return_rows.append(row)
     return return_rows
@@ -71,54 +90,43 @@ def _split_rpdr_key_line(text_line):
     return tuple(text_line.replace('\r', '').replace('\n', '').split('|'))
 
 
-def _filter_rpdr_notes_by_column_val(rpdr_keys_to_notes,
+def _filter_rpdr_notes_by_column_val(rpdr_notes,
                                      required_report_description,
                                      required_report_type):
     """Filter the rpdr notes by column values.
 
     Input:
-    rpdr_keys_to_notes: the dict mapping rpdr column values as a tuple in the
-        same format as the RPDR text header format to rpdr notes.
+    rpdr_notes: the list of RPDR note objects.
     required_report_description: a value for report description such as "ECG"
     required_report_type: a value for the report type such as "CAR"
 
-    Return rpdr_keys_to_notes with all values filtered out whose keys differ
+    Return rpdr_notes with all values filtered out whose keys differ
     from either `required_report_type` or `required_report_description` if
     those values are not None.
     """
-    return_dict = rpdr_keys_to_notes.copy()
-    for rpdr_keys, rpdr_notes in rpdr_keys_to_notes.iteritems():
-        (empi, mrn_type, mrn, report_number, mid, report_date_time,
-         report_description, report_status,
-         report_type, report_text) = rpdr_keys
+    filtered_rpdr_notes = []
+    for rpdr_note in rpdr_notes:
         if (required_report_description is not None and
-                report_description != required_report_description):
-            del return_dict[rpdr_keys]
+                rpdr_note.report_description != required_report_description):
             continue
         if (required_report_type is not None and
-                report_type != required_report_type):
-            del return_dict[rpdr_keys]
+                rpdr_note.report_type != required_report_type):
             continue
-    return return_dict
+        filtered_rpdr_notes.append(rpdr_note)
+    return filtered_rpdr_notes
 
 
 def _parse_rpdr_text_file(rpdr_filename):
-    """Return a map of tuple of rpdr column values to notes."""
+    """Return a list of RPDR Note objects"""
     with open(rpdr_filename, 'rb') as rpdr_file:
         rpdr_lines = rpdr_file.readlines()
-    # Expect this header describing the column values
-    if rpdr_lines[0] != ('EMPI|MRN_Type|MRN|Report_Number|MID|Report_Date_Time'
-                         '|Report_Description|Report_Status|Report_Type|'
-                         'Report_Text\r\n'):
-        raise ValueError('Invalid header for RPDR formatted text file. Got %s'
-                         % rpdr_lines[0])
     header_column_names = _split_rpdr_key_line(rpdr_lines[0])
-
-    # Map tuple of column values to free-text notes
-    rpdr_keys_to_notes = {}
 
     # None if at the start of the file or in between patient notes.
     rpdr_keys = None
+
+    rpdr_note = ''
+    rpdr_notes = []
     for line in rpdr_lines[1:]:
         # If starting a new note and the current line is empty, continue.
         if not rpdr_keys and not line.replace('\r', '').replace('\n', ''):
@@ -133,36 +141,36 @@ def _parse_rpdr_text_file(rpdr_filename):
             if len(rpdr_keys) != len(header_column_names):
                 raise ValueError('Expected RPDR column values of the same '
                                  'length as the header, got: %s' % rpdr_keys)
-            if rpdr_keys in rpdr_keys_to_notes:
-                raise KeyError('Expected rpdr_keys to be unique. Got %s '
-                               'multiple times' % rpdr_keys)
-            rpdr_keys_to_notes[rpdr_keys] = ''
+            rpdr_column_name_to_key = {
+                column_name: key for (column_name, key) in
+                zip(header_column_names, rpdr_keys)
+            }
+            rpdr_note = ''
         else:  # line is part of notes
-            rpdr_keys_to_notes[rpdr_keys] += line
-            if '[report end]' in line:
+            rpdr_note += line
+            if '[report_end]' in line:
                 rpdr_keys = None
-    return rpdr_keys_to_notes
+                rpdr_note = RPDRNote(rpdr_column_name_to_key, rpdr_note)
+                rpdr_notes.append(rpdr_note)
+    return rpdr_notes
 
 
-def _get_rows_for_turk_csv(rpdr_keys_to_notes, extract_numerical_value,
+def _get_rows_for_turk_csv(rpdr_notes, extract_numerical_value,
                            phrase):
     """Writes turk validation rows to csv including:
     (note, regex_value, patient, note_id, regex_extract_start,
      regex_extract_end)
     """
     return_rows = []
-    for rpdr_keys, rpdr_notes in rpdr_keys_to_notes.iteritems():
+    for rpdr_note in rpdr_notes:
         if extract_numerical_value:
             (numerical_value, match_start, match_end) = \
-                _extract_numerical_value(phrase, rpdr_notes)
+                _extract_numerical_value(phrase, rpdr_note.note)
         else:
             (numerical_value, match_start, match_end) = _check_phrase_in_notes(
-                phrase, rpdr_notes)
-        (empi, mrn_type, mrn, report_number, mid, report_date_time,
-         report_description, report_status,
-         report_type, report_text) = rpdr_keys
-        row = [rpdr_notes, numerical_value, empi, report_number, match_start,
-               match_end]
+                phrase, rpdr_note.note)
+        row = [rpdr_note.note, numerical_value, rpdr_note.empi,
+               rpdr_note.report_number, match_start, match_end]
         return_rows.append(row)
     return return_rows
 
@@ -188,22 +196,23 @@ def _write_turk_verification_csv(turk_csv_rows, turk_csv_name):
 
 def main(input_filename, output_filename, extract_numerical_value, phrase,
          report_description, report_type, turk_csv_filename):
-    rpdr_keys_to_notes = _parse_rpdr_text_file(input_filename)
-    rpdr_keys_to_notes = _filter_rpdr_notes_by_column_val(
-        rpdr_keys_to_notes, report_description, report_type)
+    rpdr_notes = _parse_rpdr_text_file(input_filename)
+    rpdr_notes = _filter_rpdr_notes_by_column_val(
+        rpdr_notes, report_description, report_type)
+
     rpdr_rows_with_regex_value = _extract_values_from_rpdr_notes(
-        rpdr_keys_to_notes, extract_numerical_value, phrase)
+        rpdr_notes, extract_numerical_value, phrase)
     with open(output_filename, 'wb') as output_file:
         csv_writer = csv.writer(output_file)
         csv_writer.writerows(rpdr_rows_with_regex_value)
 
     turk_rows = _get_rows_for_turk_csv(
-        rpdr_keys_to_notes, extract_numerical_value, phrase)
+        rpdr_notes, extract_numerical_value, phrase)
     _write_turk_verification_csv(turk_rows, turk_csv_filename)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_filename', required=True,
+    parser.add_argument('input_filename',
                         help=('Path to an RPDR formatted '
                               'text file, e.g. /Users/user1/../file.txt'))
     parser.add_argument('--output_filename', default='output.csv',
