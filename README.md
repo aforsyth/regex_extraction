@@ -18,7 +18,7 @@ Navigate to the directory at which you want to install my code. Then, `git clone
 
 Example:
 
-`python extract_values.py --input_filename "/path/to/file.txt" --extract_numerical_value True --phrase "EF"`
+`python extract_values.py "/path/to/input_file.txt" --extract_numerical_value True --phrase "EF"`
 
 The example will extract the value 60 from notes including "EF is 60" or "EF: 60", for example. Note that phrase is case insenstive. When extracting numerical values following a phrase, anything like "[phrase] [num]", [phrase] is [num]", "[phrase] of [num]", "phrase: [num]" will be matched.
 
