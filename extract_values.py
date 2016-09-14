@@ -14,11 +14,13 @@ class RPDRNote(object):
                               rpdr_column_name_to_key.get('Record_Id'))
         self.report_description = rpdr_column_name_to_key.get(
             'Report_Description')
+        self.report_date = (rpdr_column_name_to_key.get('Report_Date_Time') or
+                            rpdr_column_name_to_key.get('LMRNote_Date'))
         self.note = rpdr_note
 
     def get_keys(self):
         return [self.empi, self.mrn_type, self.mrn, self.report_type,
-                self.report_number]
+                self.report_number, self.report_date]
 
 
 def _extract_numerical_value(preceding_phrase, note):
@@ -175,8 +177,15 @@ def _get_rows_for_turk_csv(rpdr_notes, extract_numerical_value,
     return return_rows
 
 
-def _write_turk_verification_csv(turk_csv_rows, turk_csv_name):
-    """Convert the notes to HTML with regex extracted value bolded."""
+def _write_turk_verification_csv(turk_csv_rows, turk_csv_name,
+                                 extract_numerical_value):
+    """Convert the notes to HTML with regex extracted value bolded.
+
+    Return only rows for which there was a value extracted. I.e. if extracting
+    a numerical value, only rows with a non-None value will be returned. If
+    checking phrase presence, only rows with a 1 binary value indicating phrase
+    presence will be included.
+    """
     return_rows = []
     for [rpdr_notes, numerical_value, empi, report_number, match_start,
          match_end] in turk_csv_rows:
@@ -186,6 +195,12 @@ def _write_turk_verification_csv(turk_csv_rows, turk_csv_name):
         rpdr_notes = (rpdr_notes[:match_start] + extracted_value_html +
                       rpdr_notes[match_end:])
         rpdr_notes = rpdr_notes.replace('\r\n', '<br>')
+
+        # If extracting numerical value, and None was extracted, continue. Or,
+        # if not extracting numerical value, and no match, continue.
+        if ((numerical_value is None and extract_numerical_value) or
+                (numerical_value == 0.0 and not extract_numerical_value)):
+            continue
         return_rows.append((rpdr_notes, numerical_value, empi, report_number))
     with open(turk_csv_name, 'wb') as turk_csv:
         csvwriter = csv.writer(turk_csv)
@@ -208,7 +223,8 @@ def main(input_filename, output_filename, extract_numerical_value, phrase,
 
     turk_rows = _get_rows_for_turk_csv(
         rpdr_notes, extract_numerical_value, phrase)
-    _write_turk_verification_csv(turk_rows, turk_csv_filename)
+    _write_turk_verification_csv(turk_rows, turk_csv_filename,
+                                 extract_numerical_value)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
