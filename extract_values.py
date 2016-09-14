@@ -23,12 +23,23 @@ class RPDRNote(object):
                 self.report_number, self.report_date]
 
 
-def _extract_numerical_value(preceding_phrases, note):
+class PhraseMatch(object):
+    """Describes a phrase match to a particular RPDR Note."""
+    def __init__(self, rpdr_note, extracted_value, match_start, match_end,
+                 phrase):
+        self.rpdr_note = rpdr_note
+        # Binary 0/1 for extracting phrase presence, else numerical value.
+        self.extracted_value = extracted_value
+        self.match_start = match_start
+        self.match_end = match_end
+        self.phrase = phrase
+
+
+def _extract_numerical_value(preceding_phrases, rpdr_note):
     """Return a numerical value preceded by the a set of phrases.
 
-    Return (numerical_value (as a float), match_start, match_end). Will return
-        the first match for the first phrase in preceding_phrases that has a
-        match in the supplied note.
+    Return a PhraseMatch object for the extracted numerical value and the
+    phrase that matched rpdr_note.note.
 
     Input:
     preceding_phrases: a list of phrases or words indicating that the desired
@@ -49,50 +60,42 @@ def _extract_numerical_value(preceding_phrases, note):
         re_flags = re.I | re.M | re.DOTALL
         pattern = re.compile(pattern_string, flags=re_flags)
         try:
-            match = next(pattern.finditer(note))
+            match = next(pattern.finditer(rpdr_note.note))
             numerical_value = float(match.groups()[0])
-            return (numerical_value, match.start(), match.end())
+            return PhraseMatch(rpdr_note, numerical_value, match.start(),
+                               match.end(), preceding_phrase)
         except StopIteration:
             continue
-    return (None, None, None)
+    return PhraseMatch(rpdr_note, None, None, None, None)
 
 
-def _check_phrase_in_notes(phrases, note):
-    """Return 1 if the notes contain at least one of the phrases at least once,
-    else 0."""
+def _check_phrase_in_notes(phrases, rpdr_note):
+    """Return a PhraseMatch object with the value as a binary 0/1 indicating
+    whether one of the phrases was found in rpdr_note.note."""
     for phrase in phrases:
         pattern_string = '(%s)' % phrase
         re_flags = re.I | re.M | re.DOTALL
         pattern = re.compile(pattern_string, flags=re_flags)
         try:
-            match = next(pattern.finditer(note))
-            return (1, match.start(), match.end())
+            match = next(pattern.finditer(rpdr_note.note))
+            return PhraseMatch(rpdr_note, 1, match.start(), match.end(),
+                               phrase)
         except StopIteration:
             continue
-    return (0, None, None)
+    return PhraseMatch(rpdr_note, 0, None, None, None)
 
 
 def _extract_values_from_rpdr_notes(rpdr_notes,
                                     extract_numerical_value, phrases):
-    """Return a list of rows with the regex values as the last element.
-
-    Return a list of rows where each row begins with each of the values
-    specified in the RPDR header for those notes. The last element of the
-    row is the value of the regex extraction (either 0/1 when checking for
-    phrase presence, or a numerical value for value extraction).
-    """
-    return_rows = []
+    """Return a list of Phrase Match objects for each note in rpdr_notes."""
+    phrase_matches = []
     for rpdr_note in rpdr_notes:
         if extract_numerical_value:
-            (numerical_value, match_start, match_end) = \
-                _extract_numerical_value(phrases, rpdr_note.note)
+            phrase_match = _extract_numerical_value(phrases, rpdr_note)
         else:
-            (numerical_value, match_start, match_end) = _check_phrase_in_notes(
-                phrases, rpdr_note.note)
-        row = rpdr_note.get_keys()
-        row.append(numerical_value)
-        return_rows.append(row)
-    return return_rows
+            phrase_match = _check_phrase_in_notes(phrases, rpdr_note)
+        phrase_matches.append(phrase_match)
+    return phrase_matches
 
 
 def _split_rpdr_key_line(text_line):
@@ -165,22 +168,24 @@ def _parse_rpdr_text_file(rpdr_filename):
     return rpdr_notes
 
 
-def _get_rows_for_turk_csv(rpdr_notes, extract_numerical_value,
+def _get_rows_for_turk_csv(phrase_matches, extract_numerical_value,
                            phrases):
-    """Writes turk validation rows to csv including:
-    (note, regex_value, patient, note_id, regex_extract_start,
-     regex_extract_end)
+    """Returnturk validation rows for the tasks csv including:
+    [note, regex_value, patient identifier, note_id, regex_extract_start,
+     regex_extract_end]
     """
     return_rows = []
-    for rpdr_note in rpdr_notes:
-        if extract_numerical_value:
-            (numerical_value, match_start, match_end) = \
-                _extract_numerical_value(phrases, rpdr_note.note)
-        else:
-            (numerical_value, match_start, match_end) = _check_phrase_in_notes(
-                phrases, rpdr_note.note)
-        row = [rpdr_note.note, numerical_value, rpdr_note.empi,
-               rpdr_note.report_number, match_start, match_end]
+    for phrase_match in phrase_matches:
+        extracted_value = phrase_match.extracted_value
+        # If extracting numerical value, and None was extracted, continue. Or,
+        # if not extracting numerical value, and no match, continue.
+        if ((extracted_value is None and extract_numerical_value) or
+                (extracted_value == 0.0 and not extract_numerical_value)):
+            continue
+        rpdr_note = phrase_match.rpdr_note
+        row = [rpdr_note.note, extracted_value, rpdr_note.empi,
+               rpdr_note.report_number, phrase_match.match_start,
+               phrase_match.match_end]
         return_rows.append(row)
     return return_rows
 
@@ -203,12 +208,6 @@ def _write_turk_verification_csv(turk_csv_rows, turk_csv_name,
         rpdr_notes = (rpdr_notes[:match_start] + extracted_value_html +
                       rpdr_notes[match_end:])
         rpdr_notes = rpdr_notes.replace('\r\n', '<br>')
-
-        # If extracting numerical value, and None was extracted, continue. Or,
-        # if not extracting numerical value, and no match, continue.
-        if ((numerical_value is None and extract_numerical_value) or
-                (numerical_value == 0.0 and not extract_numerical_value)):
-            continue
         return_rows.append((rpdr_notes, numerical_value, empi, report_number))
     with open(turk_csv_name, 'wb') as turk_csv:
         csvwriter = csv.writer(turk_csv)
@@ -217,20 +216,33 @@ def _write_turk_verification_csv(turk_csv_rows, turk_csv_name,
     return return_rows
 
 
+def _write_csv_output(phrase_matches, output_filename):
+    """Write one CSV row for each phrase_match where the row contains all of
+    the RPDR note keys along with the extracted numerical value at the end of
+    the row."""
+    rpdr_rows_with_regex_value = []
+    for phrase_match in phrase_matches:
+        row = phrase_match.rpdr_note.get_keys()
+        row.append(phrase_match.extracted_value)
+        rpdr_rows_with_regex_value.append(row)
+
+    with open(output_filename, 'wb') as output_file:
+        csv_writer = csv.writer(output_file)
+        csv_writer.writerows(rpdr_rows_with_regex_value)
+
+
 def main(input_filename, output_filename, extract_numerical_value, phrases,
          report_description, report_type, turk_csv_filename):
     rpdr_notes = _parse_rpdr_text_file(input_filename)
     rpdr_notes = _filter_rpdr_notes_by_column_val(
         rpdr_notes, report_description, report_type)
 
-    rpdr_rows_with_regex_value = _extract_values_from_rpdr_notes(
+    phrase_matches = _extract_values_from_rpdr_notes(
         rpdr_notes, extract_numerical_value, phrases)
-    with open(output_filename, 'wb') as output_file:
-        csv_writer = csv.writer(output_file)
-        csv_writer.writerows(rpdr_rows_with_regex_value)
+    _write_csv_output(phrase_matches, output_filename)
 
     turk_rows = _get_rows_for_turk_csv(
-        rpdr_notes, extract_numerical_value, phrases)
+        phrase_matches, extract_numerical_value, phrases)
     _write_turk_verification_csv(turk_rows, turk_csv_filename,
                                  extract_numerical_value)
 
