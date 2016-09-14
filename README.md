@@ -18,7 +18,7 @@ Navigate to the directory at which you want to install my code. Then, `git clone
 
 Example:
 
-`python extract_values.py "/path/to/input_file.txt" --extract_numerical_value True --phrase "EF"`
+`python extract_values.py "/path/to/input_file.txt" --extract_numerical_value True --phrases "EF"`
 
 The example will extract the value 60 from notes including "EF is 60" or "EF: 60", for example. Note that phrase is case insenstive. When extracting numerical values following a phrase, anything like "[phrase] [num]", [phrase] is [num]", "[phrase] of [num]", "phrase: [num]" will be matched.
 
@@ -28,7 +28,8 @@ The example will extract the value 60 from notes including "EF is 60" or "EF: 60
 
 `extract_numerical_value`: True if extraction a numerical value, False if only checking whether the notes contain a phrase (i.e. a boolean 0 or 1). Defaults to False.
 
-`phrase`: The phrase to check for either preceding the numerical value, or to check for its presence.
+`phrases`: A list of comma separated phrases to check for either preceding the numerical value, or to check for their presence. The output will return numerical values following
+any of the phrases in the supplied list. Example: "phrase1,phrase2,phrase3"
 
 `report_description` (optional): If specified, only reports that exactly match the report_description value passed in will be examined.
 
@@ -41,4 +42,4 @@ this filename that can be used to verify regex extraction with localturk.
 
 Install localturk from here: https://github.com/danvk/localturk
 
-Run `localturk --static_dir . localturk/extract.html /path/to/turk_csv_filename.csv outputs.csv` where `extract.html` is the localturk html template included in this repository, and `turk_csv_filename.csv` is the csv output with turk `turk_csv_filename` option.
+Run `localturk --static_dir . localturk/extract.html localturk/tasks.csv localturk/outputs.csv` where `extract.html` is the localturk html template included in this repository, and `turk_csv_filename.csv` is the csv output with turk `turk_csv_filename` option.

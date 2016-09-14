@@ -23,14 +23,17 @@ class RPDRNote(object):
                 self.report_number, self.report_date]
 
 
-def _extract_numerical_value(preceding_phrase, note):
+def _extract_numerical_value(preceding_phrases, note):
     """Return a numerical value preceded by the a set of phrases.
 
-    Return (numerical_value (as a float), match_start, match_end)
+    Return (numerical_value (as a float), match_start, match_end). Will return
+        the first match for the first phrase in preceding_phrases that has a
+        match in the supplied note.
 
     Input:
-    preceding_phrase: a phrase or word indicating that the desired numerical
-        value will follow. E.g. this might be "EF" for ejection fraction.
+    preceding_phrases: a list of phrases or words indicating that the desired
+        numerical value will follow. E.g. this might be ["EF",
+        "ejection fraction", "LVEF"] for ejection fraction.
     This can be used, for example, to extract lab values from free-text notes.
     This looks for a string matching `preceding_phrase` followed by one of
     the value_indicators (is, of, :), followed by a numerical value. For
@@ -40,32 +43,37 @@ def _extract_numerical_value(preceding_phrase, note):
     returned.
     TODO(aforsyth): is first match the right behavior?
     """
-    pattern_string = ('(?:%s)\s*(?:of|is|\:)?[:]*[\s]*([0-9]'
-                      '+\.?[0-9]*)' % preceding_phrase)
-    re_flags = re.I | re.M | re.DOTALL
-    pattern = re.compile(pattern_string, flags=re_flags)
-    try:
-        match = next(pattern.finditer(note))
-        numerical_value = float(match.groups()[0])
-        return (numerical_value, match.start(), match.end())
-    except StopIteration:
-        return (None, None, None)
+    for preceding_phrase in preceding_phrases:
+        pattern_string = ('(?:%s)\s*(?:of|is|\:)?[:]*[\s]*([0-9]'
+                          '+\.?[0-9]*)' % preceding_phrase)
+        re_flags = re.I | re.M | re.DOTALL
+        pattern = re.compile(pattern_string, flags=re_flags)
+        try:
+            match = next(pattern.finditer(note))
+            numerical_value = float(match.groups()[0])
+            return (numerical_value, match.start(), match.end())
+        except StopIteration:
+            continue
+    return (None, None, None)
 
 
-def _check_phrase_in_notes(phrase, note):
-    """Return 1 if the notes contain phrase at least once, else 0."""
-    pattern_string = '(%s)' % phrase
-    re_flags = re.I | re.M | re.DOTALL
-    pattern = re.compile(pattern_string, flags=re_flags)
-    try:
-        match = next(pattern.finditer(note))
-        return (1, match.start(), match.end())
-    except StopIteration:
-        return (0, None, None)
+def _check_phrase_in_notes(phrases, note):
+    """Return 1 if the notes contain at least one of the phrases at least once,
+    else 0."""
+    for phrase in phrases:
+        pattern_string = '(%s)' % phrase
+        re_flags = re.I | re.M | re.DOTALL
+        pattern = re.compile(pattern_string, flags=re_flags)
+        try:
+            match = next(pattern.finditer(note))
+            return (1, match.start(), match.end())
+        except StopIteration:
+            continue
+    return (0, None, None)
 
 
 def _extract_values_from_rpdr_notes(rpdr_notes,
-                                    extract_numerical_value, phrase):
+                                    extract_numerical_value, phrases):
     """Return a list of rows with the regex values as the last element.
 
     Return a list of rows where each row begins with each of the values
@@ -77,10 +85,10 @@ def _extract_values_from_rpdr_notes(rpdr_notes,
     for rpdr_note in rpdr_notes:
         if extract_numerical_value:
             (numerical_value, match_start, match_end) = \
-                _extract_numerical_value(phrase, rpdr_note.note)
+                _extract_numerical_value(phrases, rpdr_note.note)
         else:
             (numerical_value, match_start, match_end) = _check_phrase_in_notes(
-                phrase, rpdr_note.note)
+                phrases, rpdr_note.note)
         row = rpdr_note.get_keys()
         row.append(numerical_value)
         return_rows.append(row)
@@ -158,7 +166,7 @@ def _parse_rpdr_text_file(rpdr_filename):
 
 
 def _get_rows_for_turk_csv(rpdr_notes, extract_numerical_value,
-                           phrase):
+                           phrases):
     """Writes turk validation rows to csv including:
     (note, regex_value, patient, note_id, regex_extract_start,
      regex_extract_end)
@@ -167,10 +175,10 @@ def _get_rows_for_turk_csv(rpdr_notes, extract_numerical_value,
     for rpdr_note in rpdr_notes:
         if extract_numerical_value:
             (numerical_value, match_start, match_end) = \
-                _extract_numerical_value(phrase, rpdr_note.note)
+                _extract_numerical_value(phrases, rpdr_note.note)
         else:
             (numerical_value, match_start, match_end) = _check_phrase_in_notes(
-                phrase, rpdr_note.note)
+                phrases, rpdr_note.note)
         row = [rpdr_note.note, numerical_value, rpdr_note.empi,
                rpdr_note.report_number, match_start, match_end]
         return_rows.append(row)
@@ -209,20 +217,20 @@ def _write_turk_verification_csv(turk_csv_rows, turk_csv_name,
     return return_rows
 
 
-def main(input_filename, output_filename, extract_numerical_value, phrase,
+def main(input_filename, output_filename, extract_numerical_value, phrases,
          report_description, report_type, turk_csv_filename):
     rpdr_notes = _parse_rpdr_text_file(input_filename)
     rpdr_notes = _filter_rpdr_notes_by_column_val(
         rpdr_notes, report_description, report_type)
 
     rpdr_rows_with_regex_value = _extract_values_from_rpdr_notes(
-        rpdr_notes, extract_numerical_value, phrase)
+        rpdr_notes, extract_numerical_value, phrases)
     with open(output_filename, 'wb') as output_file:
         csv_writer = csv.writer(output_file)
         csv_writer.writerows(rpdr_rows_with_regex_value)
 
     turk_rows = _get_rows_for_turk_csv(
-        rpdr_notes, extract_numerical_value, phrase)
+        rpdr_notes, extract_numerical_value, phrases)
     _write_turk_verification_csv(turk_rows, turk_csv_filename,
                                  extract_numerical_value)
 
@@ -238,9 +246,11 @@ if __name__ == '__main__':
                         default=False, help=('Extracts a numerical value if'
                                              ' specified. Else, checks for '
                                              'presence of the phrase.'))
-    parser.add_argument('--phrase', required=True, help=(
-        'Either the phrase to check for if not exracting a numerical value, '
-        'or the phrase preceding the numerical value if extracting a number.'))
+    parser.add_argument('--phrases', required=True, help=(
+        'A list of comma separated phrases such as "phrase1,phrase2". Each '
+        'phrase should be either the phrase to check for if not exracting a '
+        'numerical value, or the phrase preceding the numerical value if '
+        'extracting a number.'))
     parser.add_argument('--report_description', help=(
         'Only return values from reports matching this exact report '
         'description (e.g. "Cardiac Catheterization").'))
@@ -260,15 +270,16 @@ if __name__ == '__main__':
         logging.basicConfig(filename='extraction.log', level=logging.DEBUG)
 
     if not args.extract_numerical_value:
-        extract_type_string = 'Extracting exact phrase "%s"' % args.phrase
+        extract_type_string = 'Extracting exact phrases "%s"' % args.phrases
     else:
-        extract_type_string = ('Extracting numerical value preceded by "%s" '
-                               % args.phrase)
+        extract_type_string = ('Extracting numerical value preceded by one of'
+                               '"%s" ' % args.phrases)
     logging.debug('%s from %s and outputting rows to %s.' %
                   (extract_type_string, args.input_filename,
                    args.output_filename))
+    phrases = args.phrases.split(',')
 
     main(args.input_filename, args.output_filename,
-         args.extract_numerical_value, args.phrase,
+         args.extract_numerical_value, phrases,
          args.report_description, args.report_type,
          args.turk_csv_filename)
