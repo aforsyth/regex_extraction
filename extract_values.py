@@ -9,7 +9,8 @@ class RPDRNote(object):
         self.empi = rpdr_column_name_to_key['EMPI']
         self.mrn_type = rpdr_column_name_to_key['MRN_Type']
         self.mrn = rpdr_column_name_to_key['MRN']
-        self.report_type = rpdr_column_name_to_key['Report_Type']
+        self.report_type = (rpdr_column_name_to_key.get('Report_Type') or
+                            rpdr_column_name_to_key.get('Subject'))
         self.report_number = (rpdr_column_name_to_key.get('Report_Number') or
                               rpdr_column_name_to_key.get('Record_Id'))
         self.report_description = rpdr_column_name_to_key.get(
