@@ -141,7 +141,10 @@ def _parse_rpdr_text_file(rpdr_filename):
 
     rpdr_note = ''
     rpdr_notes = []
-    for line in rpdr_lines[1:]:
+
+    ignore_lines = False  # True if bad formatted header
+    num_bad_formatted_headers = 0
+    for line_number, line in enumerate(rpdr_lines[1:]):
         # If starting a new note and the current line is empty, continue.
         if not rpdr_keys and not line.replace('\r', '').replace('\n', ''):
             continue
@@ -153,19 +156,29 @@ def _parse_rpdr_text_file(rpdr_filename):
                                  'a new note. Got %s' % line)
             rpdr_keys = _split_rpdr_key_line(line)
             if len(rpdr_keys) != len(header_column_names):
-                raise ValueError('Expected RPDR column values of the same '
-                                 'length as the header, got: %s' % rpdr_keys)
+                ignore_lines = True
+                num_bad_formatted_headers += 1
+                continue
+                # raise ValueError('Expected RPDR column values of the same '
+                #                'length as the header (%s), got: %s of length'
+                #                  ' %s at line number: %s'
+                #                  % (len(header_column_names), str(rpdr_keys),
+                #                     len(rpdr_keys), line_number))
             rpdr_column_name_to_key = {
                 column_name: key for (column_name, key) in
                 zip(header_column_names, rpdr_keys)
             }
             rpdr_note = ''
         else:  # line is part of notes
-            rpdr_note += line
+            if not ignore_lines:
+                rpdr_note += line
             if '[report_end]' in line:
                 rpdr_keys = None
-                rpdr_note = RPDRNote(rpdr_column_name_to_key, rpdr_note)
-                rpdr_notes.append(rpdr_note)
+                if not ignore_lines:
+                    rpdr_note = RPDRNote(rpdr_column_name_to_key, rpdr_note)
+                    rpdr_notes.append(rpdr_note)
+                ignore_lines = False
+    logging.info('Num bad formatted headers: %s' % num_bad_formatted_headers)
     return rpdr_notes
 
 
