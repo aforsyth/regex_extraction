@@ -45,5 +45,94 @@ class TestFilterRPDRNotesByColumnVal(unittest.TestCase):
         self.assertEqual(1, len(filtered_rpdr_notes))
 
 
+class TestRegexPhraseMatch(unittest.TestCase):
+    def setUp(self):
+        self.rpdr_note = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'}, 'ventilate')
+
+    def test_dont_match_at_start_of_longer_word(self):
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['vent'], self.rpdr_note)
+        self.assertEqual(0, phrase_match.extracted_value)
+
+    def test_dont_match_at_end_of_longer_word(self):
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['ate'], self.rpdr_note)
+        self.assertEqual(0, phrase_match.extracted_value)
+
+    def test_dont_match_in_middle_of_longer_word(self):
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['tila'], self.rpdr_note)
+        self.assertEqual(0, phrase_match.extracted_value)
+
+    def test_match_exact_single_phrase_begin_and_end(self):
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['ventilate'], self.rpdr_note)
+        self.assertEqual(1, phrase_match.extracted_value)
+
+    def test_match_space_surround1(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'}, ' ventilate')
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['ventilate'], rpdr_note2)
+        self.assertEqual(1, phrase_match.extracted_value)
+
+    def test_match_space_surround2(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'}, ' ventilate ')
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['ventilate'], rpdr_note2)
+        self.assertEqual(1, phrase_match.extracted_value)
+
+    def test_match_punctuation(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'}, ' ventilate.')
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['ventilate'], rpdr_note2)
+        self.assertEqual(1, phrase_match.extracted_value)
+
+    def test_match_punctuation2(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'}, ' ventilate?')
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['ventilate'], rpdr_note2)
+        self.assertEqual(1, phrase_match.extracted_value)
+
+    def test_match_beginning_punctuation(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'}, 'ventilate.')
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['ventilate'], rpdr_note2)
+        self.assertEqual(1, phrase_match.extracted_value)
+
+    def test_match_beginning_punctuation2(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'}, 'ventilate?')
+        phrase_match = extract_values._check_phrase_in_notes(
+            ['ventilate'], rpdr_note2)
+        self.assertEqual(1, phrase_match.extracted_value)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -73,16 +73,21 @@ def _extract_numerical_value(preceding_phrases, rpdr_note):
 def _check_phrase_in_notes(phrases, rpdr_note):
     """Return a PhraseMatch object with the value as a binary 0/1 indicating
     whether one of the phrases was found in rpdr_note.note."""
+    pattern_strings = [
+        '(\s%s\s)', '(^%s\s)', '(\s%s$)', '(^%s$)', '(\s%s[\.\?\!\-])',
+        '(^%s[\.\?\!\-])'
+    ]
     for phrase in phrases:
-        pattern_string = '(%s)' % phrase
-        re_flags = re.I | re.M | re.DOTALL
-        pattern = re.compile(pattern_string, flags=re_flags)
-        try:
-            match = next(pattern.finditer(rpdr_note.note))
-            return PhraseMatch(rpdr_note, 1, match.start(), match.end(),
-                               phrase)
-        except StopIteration:
-            continue
+        for pattern_string in pattern_strings:
+            pattern_string = pattern_string % phrase
+            re_flags = re.I | re.M | re.DOTALL
+            pattern = re.compile(pattern_string, flags=re_flags)
+            try:
+                match = next(pattern.finditer(rpdr_note.note))
+                return PhraseMatch(rpdr_note, 1, match.start(), match.end(),
+                                   phrase)
+            except StopIteration:
+                continue
     return PhraseMatch(rpdr_note, 0, None, None, None)
 
 
