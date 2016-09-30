@@ -157,6 +157,92 @@ class TestRegexPhraseMatch(unittest.TestCase):
         phrase_match = phrase_matches[0]
         self.assertEqual(1, phrase_match.extracted_value)
 
+    def test_multiple_matches_same_phrase(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'ventilate ventilate')
+        note_phrase_matches = extract_values._check_phrase_in_notes(
+            ['ventilate'], rpdr_note2)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(2, len(phrase_matches))
+        for phrase_match in phrase_matches:
+            self.assertEqual(1, phrase_match.extracted_value)
+
+    def test_many_matches_same_phrase(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'ventilate ventilate alex alex alex ventilate, ventilate alex')
+        note_phrase_matches = extract_values._check_phrase_in_notes(
+            ['ventilate'], rpdr_note2)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(4, len(phrase_matches))
+        for phrase_match in phrase_matches:
+            self.assertEqual(1, phrase_match.extracted_value)
+
+    def test_multiple_matches_different_phrase(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'ventilate g-tube')
+        note_phrase_matches = extract_values._check_phrase_in_notes(
+            ['ventilate', 'g-tube'], rpdr_note2)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(2, len(phrase_matches))
+        self.assertEqual(0, phrase_matches[0].match_start)
+        self.assertEqual(10, phrase_matches[0].match_end)
+        for phrase_match in phrase_matches:
+            self.assertEqual(1, phrase_match.extracted_value)
+
+    def test_extract_numerical(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'ef 2.0')
+        note_phrase_matches = extract_values._extract_numerical_value(
+            ['ef'], rpdr_note2)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(1, len(phrase_matches))
+        self.assertEqual(2.0, phrase_matches[0].extracted_value)
+
+    def test_extract_multiple_numerical(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'ef 2.0 alex alex ef 20.0')
+        note_phrase_matches = extract_values._extract_numerical_value(
+            ['ef'], rpdr_note2)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(2, len(phrase_matches))
+        self.assertEqual(2.0, phrase_matches[0].extracted_value)
+        self.assertEqual(20.0, phrase_matches[1].extracted_value)
+
+    def test_extract_multiple_numerical_multiple_phrases(self):
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'ef 2.0 alex alex ef 20.0 alex ejection fraction 4.0')
+        note_phrase_matches = extract_values._extract_numerical_value(
+            ['ef', 'ejection fraction'], rpdr_note2)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(3, len(phrase_matches))
+        self.assertEqual(2.0, phrase_matches[0].extracted_value)
+        self.assertEqual(20.0, phrase_matches[1].extracted_value)
+        self.assertEqual(4.0, phrase_matches[2].extracted_value)
+
 
 if __name__ == '__main__':
     unittest.main()

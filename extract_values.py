@@ -72,12 +72,14 @@ def _extract_numerical_value(preceding_phrases, rpdr_note):
                           '+\.?[0-9]*)' % preceding_phrase)
         re_flags = re.I | re.M | re.DOTALL
         pattern = re.compile(pattern_string, flags=re_flags)
+        match_iter = pattern.finditer(rpdr_note.note)
         try:
-            match = next(pattern.finditer(rpdr_note.note))
-            numerical_value = float(match.groups()[0])
-            new_match = PhraseMatch(numerical_value, match.start(),
-                                    match.end(), preceding_phrase)
-            phrase_matches.add_phrase_match(new_match)
+            while True:
+                match = next(match_iter)
+                numerical_value = float(match.groups()[0])
+                new_match = PhraseMatch(numerical_value, match.start(),
+                                        match.end(), preceding_phrase)
+                phrase_matches.add_phrase_match(new_match)
         except StopIteration:
             continue
     phrase_matches.finalize_phrase_matches()
@@ -88,8 +90,8 @@ def _check_phrase_in_notes(phrases, rpdr_note):
     """Return a PhraseMatch object with the value as a binary 0/1 indicating
     whether one of the phrases was found in rpdr_note.note."""
     pattern_strings = [
-        '(\s%s\s)', '(^%s\s)', '(\s%s$)', '(^%s$)', '(\s%s[\.\?\!\-])',
-        '(^%s[\.\?\!\-])'
+        '(\s%s\s)', '(^%s\s)', '(\s%s$)', '(^%s$)', '(\s%s[\,\.\?\!\-])',
+        '(^%s[\,\.\?\!\-])'
     ]
     phrase_matches = NotePhraseMatches(rpdr_note)
     for phrase in phrases:
@@ -97,10 +99,13 @@ def _check_phrase_in_notes(phrases, rpdr_note):
             pattern_string = pattern_string % phrase
             re_flags = re.I | re.M | re.DOTALL
             pattern = re.compile(pattern_string, flags=re_flags)
+            match_iter = pattern.finditer(rpdr_note.note)
             try:
-                match = next(pattern.finditer(rpdr_note.note))
-                new_match = PhraseMatch(1, match.start(), match.end(), phrase)
-                phrase_matches.add_phrase_match(new_match)
+                while True:
+                    match = next(match_iter)
+                    new_match = PhraseMatch(1, match.start(), match.end(),
+                                            phrase)
+                    phrase_matches.add_phrase_match(new_match)
             except StopIteration:
                 continue
     phrase_matches.finalize_phrase_matches()
@@ -149,6 +154,26 @@ def _filter_rpdr_notes_by_column_val(rpdr_notes,
             continue
         filtered_rpdr_notes.append(rpdr_note)
     return filtered_rpdr_notes
+
+
+def _group_rpdr_notes_by_patient(rpdr_notes):
+    """Group all rpdr notes with the same EMPI as one.
+
+    Group all of the rpdr notes with the same EMPI, adding their notes with
+    four empty lines in between, and the other row values equal to the row
+    values for the first RPDR note in the input list.
+    """
+    empi_to_notes = {}
+    for rpdr_note in rpdr_notes:
+        empi_to_notes.setdefault(rpdr_note.empi, []).append(rpdr_note)
+
+    grouped_rpdr_notes = []
+    for empi, rpdr_notes in empi_to_notes.iteritems():
+        first_note = rpdr_notes[0]
+        for rpdr_note in rpdr_notes[1:]:
+            first_note.note += ('\n\n\n\n' + rpdr_note.note)
+        grouped_rpdr_notes.append(first_note)
+    return grouped_rpdr_notes
 
 
 def _parse_rpdr_text_file(rpdr_filename):
@@ -203,48 +228,59 @@ def _parse_rpdr_text_file(rpdr_filename):
     return rpdr_notes
 
 
-def _get_rows_for_turk_csv(note_phrase_matches, extract_numerical_value,
-                           phrases):
-    """Returnturk validation rows for the tasks csv including:
-    [note, regex_value, patient identifier, note_id, regex_extract_start,
-     regex_extract_end]
-    """
-    return_rows = []
-    for phrase_matches in note_phrase_matches:
-        # If extracting numerical value, and None was extracted, continue. Or,
-        # if not extracting numerical value, and no match, continue.
-        if not phrase_matches.phrase_matches:
-            continue
-        # Take the first phrase match if multiple
-        phrase_match = phrase_matches.phrase_matches[0]
-        extracted_value = phrase_match.extracted_value
-        rpdr_note = phrase_matches.rpdr_note
-        row = [rpdr_note.note, extracted_value, rpdr_note.empi,
-               rpdr_note.report_number, phrase_match.match_start,
-               phrase_match.match_end]
-        return_rows.append(row)
-    return return_rows
-
-
-def _write_turk_verification_csv(turk_csv_rows, turk_csv_name,
-                                 extract_numerical_value):
+def _write_turk_verification_csv(phrase_matches_by_note,
+                                 extract_numerical_value,
+                                 phrases, context_size, turk_csv_name):
     """Convert the notes to HTML with regex extracted value bolded.
 
     Return only rows for which there was a value extracted. I.e. if extracting
     a numerical value, only rows with a non-None value will be returned. If
     checking phrase presence, only rows with a 1 binary value indicating phrase
     presence will be included.
+
+    If context_size is specified, it will return context_size words before and
+    after each match, with each match separated by line breaks.
     """
     return_rows = []
-    for [rpdr_notes, numerical_value, empi, report_number, match_start,
-         match_end] in turk_csv_rows:
-        # Make the extracted value bold.
-        extracted_value_html = ("<span class='highlight'>%s</span>" %
-                                rpdr_notes[match_start:match_end])
-        rpdr_notes = (rpdr_notes[:match_start] + extracted_value_html +
-                      rpdr_notes[match_end:])
-        rpdr_notes = rpdr_notes.replace('\r\n', '<br>')
-        return_rows.append((rpdr_notes, numerical_value, empi, report_number))
+    for note_phrase_matches in phrase_matches_by_note:
+        rpdr_note = note_phrase_matches.rpdr_note.note
+        html_note = ''  # extra variable used for context_size matches
+        note_offset = 0  # offset due to HTML formatting
+        if not note_phrase_matches.phrase_matches:  # no matches
+            continue
+        for phrase_match in note_phrase_matches.phrase_matches:
+            match_start = phrase_match.match_start + note_offset
+            match_end = phrase_match.match_end + note_offset
+            extracted_value_html = ("<span class='highlight'>%s</span>" %
+                                    rpdr_note[match_start:match_end])
+            # if context_size specified, only get a small context pre/post
+            if context_size is not None:
+                pre_match_words = ' '.join(
+                    rpdr_note[:match_start].split(' ')[-context_size:])
+                post_match_words = ' '.join(
+                    rpdr_note[match_end:].split(' ')[:context_size])
+                html_note += (pre_match_words + extracted_value_html +
+                              post_match_words + '<br><br>')
+            rpdr_note = (rpdr_note[:match_start] + extracted_value_html +
+                         rpdr_note[match_end:])
+            if context_size is None:
+                html_note = rpdr_note  # if not None, use full rpdr_note
+
+            # keeps track of how many extra chars have been added to the note
+            # since match starts/end were for the original note pre-HTML
+            note_offset += (len(extracted_value_html) -
+                            (match_end - match_start))
+        html_note = html_note.replace('\r\n', '<br>')
+
+        # use the value extracted from the first phrase match even if there
+        # were multiple matches. this is obviously correct when doing phrase
+        # matches. this might not be correct behavior when extracting
+        # numerical values, however.
+        extracted_value = note_phrase_matches.phrase_matches[0].extracted_value
+        return_rows.append((
+            html_note, extracted_value, note_phrase_matches.rpdr_note.empi,
+            note_phrase_matches.rpdr_note.report_number))
+
     with open(turk_csv_name, 'wb') as turk_csv:
         csvwriter = csv.writer(turk_csv)
         csvwriter.writerow(['image1', 'guess', 'empi', 'report_number'])
@@ -272,19 +308,20 @@ def _write_csv_output(note_phrase_matches, output_filename):
 
 
 def main(input_filename, output_filename, extract_numerical_value, phrases,
-         report_description, report_type, group_by_patient, turk_csv_filename):
+         report_description, report_type, group_by_patient, context_size,
+         turk_csv_filename):
     rpdr_notes = _parse_rpdr_text_file(input_filename)
     rpdr_notes = _filter_rpdr_notes_by_column_val(
         rpdr_notes, report_description, report_type)
+    if group_by_patient:
+        rpdr_notes = _group_rpdr_notes_by_patient(rpdr_notes)
 
     note_phrase_matches = _extract_values_from_rpdr_notes(
         rpdr_notes, extract_numerical_value, phrases)
     _write_csv_output(note_phrase_matches, output_filename)
 
-    turk_rows = _get_rows_for_turk_csv(
-        note_phrase_matches, extract_numerical_value, phrases)
-    _write_turk_verification_csv(turk_rows, turk_csv_filename,
-                                 extract_numerical_value)
+    _write_turk_verification_csv(note_phrase_matches, extract_numerical_value,
+                                 phrases, context_size, turk_csv_filename)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -309,10 +346,16 @@ if __name__ == '__main__':
     parser.add_argument('--report_type', help=(
         'Only return values from reports matching this exact report '
         'description (e.g. "CAR").'))
-    parser.add_argument('--group_by_patient', help=(
-        'Aggregate all notes for a single patient into one row per patient.'
-        ' Output CSV will have one row per patient, and regex extraction will '
-        'look for all matches in the notes for that patient.'))
+    parser.add_argument(
+        '--group_by_patient', default=False, action='store_true', help=(
+            'Aggregate all notes for a single patient into one row per patient'
+            '. Output CSV will have one row per patient, and regex extraction '
+            'will look for all matches in the notes for that patient.'
+            'Enabling this also means that only some context for the extracted'
+            'value will be displayed on localturk instead of the entire '
+            'patient note.'))
+    parser.add_argument('--context_size', type=int, help=(
+        'Amount of context to show before/after a match (number of words).'))
     parser.add_argument(
         '--turk_csv_filename', default='localturk/tasks.csv', help=(
             'Will write a CSV file to the specified filenme for turk'
@@ -330,6 +373,8 @@ if __name__ == '__main__':
     else:
         extract_type_string = ('Extracting numerical value preceded by one of'
                                '"%s" ' % args.phrases)
+    if args.context_size is None and args.group_by_patient:
+        args.context_size = 10
     logging.debug('%s from %s and outputting rows to %s.' %
                   (extract_type_string, args.input_filename,
                    args.output_filename))
@@ -338,4 +383,5 @@ if __name__ == '__main__':
     main(args.input_filename, args.output_filename,
          args.extract_numerical_value, phrases,
          args.report_description, args.report_type, args.group_by_patient,
+         args.context_size,
          args.turk_csv_filename)
