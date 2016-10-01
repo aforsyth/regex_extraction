@@ -38,6 +38,10 @@ any of the phrases in the supplied list. Example: "phrase1,phrase2,phrase3"
 `turk_csv_filename` (optional): If specified, a CSV file will be written with
 this filename that can be used to verify regex extraction with localturk.
 
+`group_by_patient`: If specified, all patient notes for a single patient will be grouped together (i.e. there will be one output row per patient with a 1 if a phrase was present, else 0, or the first numerical value seen if extracting a numerical value). By default, this option enables the `context_size` option with a value of 10 because patient notes concatenated together would otherwise be too long to display in localturk.
+
+`context_size`: Specified along with an integer, meaning that `context_size` number of words will be displayed before and after each regex match during localturk evaluation. This is useful 1) so that it's easier to identify matches, and 2) to reduce the total amount of text displayed, e.g. when a single note is too large to be loaded by localturk, such as when all notes for a single patient are concatenated when using the `group_by_patient` option. Around ~10 is a good starting value for this.
+
 ### Localturk usage
 
 Install localturk from here: https://github.com/danvk/localturk
