@@ -271,6 +271,9 @@ def _write_turk_verification_csv(phrase_matches_by_note,
             note_offset += (len(extracted_value_html) -
                             (match_end - match_start))
         html_note = html_note.replace('\r\n', '<br>')
+        html_note = html_note.replace('"', "'")
+        html_note = html_note.replace('\n', '<br>')
+        html_note = html_note.replace('\r', '<br>')
 
         # use the value extracted from the first phrase match even if there
         # were multiple matches. this is obviously correct when doing phrase
