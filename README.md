@@ -47,3 +47,16 @@ this filename that can be used to verify regex extraction with localturk.
 Install localturk from here: https://github.com/danvk/localturk
 
 Run `localturk --static_dir . localturk/extract.html localturk/tasks.csv localturk/outputs.csv` where `extract.html` is the localturk html template included in this repository, and `turk_csv_filename.csv` is the csv output with turk `turk_csv_filename` option.
+
+### Note Filtering Usage
+
+`filter_notes.py` allows you to filter an RPDR note file to include only notes from patients of interest and only notes for those patients within a specified time range. This could be used, for example, to find notes for a patient that are within X days before and Y days after a certain procedure.
+
+Running `filter_notes.py rpdr_filename filter_csv_filename` will output a RPDR notes file of the same format as the origin, but filtered as described. It will write this new file to the same filename as the input file, but with "_filtered" added to the same before the file extension. Optionally, you can specify the output filename with `--output_filename`.
+
+Note that filter_csv_filename should point to a file that looks like:
+empi,procedure_date,days_before,days_after,include
+1111,5/12/2016,30,0,1
+1121,5/13/2016,10,10,0
+
+Patients with a 0 for include will not be included in the output notes file.
