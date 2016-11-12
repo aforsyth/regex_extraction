@@ -98,6 +98,7 @@ def _filter_rpdr_notes(empi_to_date_range, rpdr_filename):
             if '[report_end]' in line:
                 rpdr_keys = None
                 ignore_lines = False
+    filtered_notes = rpdr_lines[0] + '\n' + filtered_notes
     return filtered_notes
 
 
