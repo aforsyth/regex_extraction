@@ -42,6 +42,8 @@ this filename that can be used to verify regex extraction with localturk.
 
 `context_size`: Specified along with an integer, meaning that `context_size` number of words will be displayed before and after each regex match during localturk evaluation. This is useful 1) so that it's easier to identify matches, and 2) to reduce the total amount of text displayed, e.g. when a single note is too large to be loaded by localturk, such as when all notes for a single patient are concatenated when using the `group_by_patient` option. Around ~10 is a good starting value for this.
 
+`num_negative_turk_matches_to_show`: By default, only positive matches are displayed in localturk for verification. Specify a number here to show up to that many negative matches, if needed, for example, to calculate false negatives in matching.
+
 ### Localturk usage
 
 Install localturk from here: https://github.com/danvk/localturk

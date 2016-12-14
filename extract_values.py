@@ -3,6 +3,8 @@ import csv
 import logging
 import re
 
+import numpy as np
+
 
 class RPDRNote(object):
     def __init__(self, rpdr_column_name_to_key, rpdr_note):
@@ -228,9 +230,18 @@ def _parse_rpdr_text_file(rpdr_filename):
     return rpdr_notes
 
 
+def _html_clean_rpdr_note(html_note):
+    html_note = html_note.replace('\r\n', '<br>')
+    html_note = html_note.replace('"', "'")
+    html_note = html_note.replace('\n', '<br>')
+    html_note = html_note.replace('\r', '<br>')
+    return html_note
+
+
 def _write_turk_verification_csv(phrase_matches_by_note,
                                  extract_numerical_value,
-                                 phrases, context_size, turk_csv_name):
+                                 phrases, context_size, turk_csv_name,
+                                 num_negative_matches_to_show=0):
     """Convert the notes to HTML with regex extracted value bolded.
 
     Return only rows for which there was a value extracted. I.e. if extracting
@@ -242,11 +253,13 @@ def _write_turk_verification_csv(phrase_matches_by_note,
     after each match, with each match separated by line breaks.
     """
     return_rows = []
+    non_match_notes = []  # indices in phrase_matches_by_note
     for note_phrase_matches in phrase_matches_by_note:
         rpdr_note = note_phrase_matches.rpdr_note.note
         html_note = ''  # extra variable used for context_size matches
         note_offset = 0  # offset due to HTML formatting
         if not note_phrase_matches.phrase_matches:  # no matches
+            non_match_notes.append(note_phrase_matches)
             continue
         for phrase_match in note_phrase_matches.phrase_matches:
             match_start = phrase_match.match_start + note_offset
@@ -270,16 +283,24 @@ def _write_turk_verification_csv(phrase_matches_by_note,
             # since match starts/end were for the original note pre-HTML
             note_offset += (len(extracted_value_html) -
                             (match_end - match_start))
-        html_note = html_note.replace('\r\n', '<br>')
-        html_note = html_note.replace('"', "'")
-        html_note = html_note.replace('\n', '<br>')
-        html_note = html_note.replace('\r', '<br>')
+        html_note = _html_clean_rpdr_note(html_note)
 
         # use the value extracted from the first phrase match even if there
         # were multiple matches. this is obviously correct when doing phrase
         # matches. this might not be correct behavior when extracting
         # numerical values, however.
         extracted_value = note_phrase_matches.phrase_matches[0].extracted_value
+        return_rows.append((
+            html_note, extracted_value, note_phrase_matches.rpdr_note.empi,
+            note_phrase_matches.rpdr_note.report_number))
+
+    num_negative_matches_to_show = min(num_negative_matches_to_show,
+                                       len(non_match_notes))
+    negative_matches_to_show = np.random.choice(
+        non_match_notes, num_negative_matches_to_show)
+    for note_phrase_matches in negative_matches_to_show:
+        html_note = _html_clean_rpdr_note(note_phrase_matches.rpdr_note.note)
+        extracted_value = None
         return_rows.append((
             html_note, extracted_value, note_phrase_matches.rpdr_note.empi,
             note_phrase_matches.rpdr_note.report_number))
@@ -312,7 +333,7 @@ def _write_csv_output(note_phrase_matches, output_filename):
 
 def main(input_filename, output_filename, extract_numerical_value, phrases,
          report_description, report_type, group_by_patient, context_size,
-         turk_csv_filename):
+         turk_csv_filename, num_negative_matches_to_show):
     rpdr_notes = _parse_rpdr_text_file(input_filename)
     rpdr_notes = _filter_rpdr_notes_by_column_val(
         rpdr_notes, report_description, report_type)
@@ -324,7 +345,8 @@ def main(input_filename, output_filename, extract_numerical_value, phrases,
     _write_csv_output(note_phrase_matches, output_filename)
 
     _write_turk_verification_csv(note_phrase_matches, extract_numerical_value,
-                                 phrases, context_size, turk_csv_filename)
+                                 phrases, context_size, turk_csv_filename,
+                                 num_negative_matches_to_show)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -363,6 +385,10 @@ if __name__ == '__main__':
         '--turk_csv_filename', default='localturk/tasks.csv', help=(
             'Will write a CSV file to the specified filenme for turk'
             'verification. Defaults to localturk/tasks.csv'))
+    parser.add_argument(
+        '--num_negative_turk_matches_to_show', type=int, default=0, help=(
+            'Turk verification will ask to verify all positive matches, and '
+            'up to this many negative matches.'))
     parser.add_argument('--verbosity', '-v', action='count')
     args = parser.parse_args()
 
@@ -387,4 +413,4 @@ if __name__ == '__main__':
          args.extract_numerical_value, phrases,
          args.report_description, args.report_type, args.group_by_patient,
          args.context_size,
-         args.turk_csv_filename)
+         args.turk_csv_filename, args.num_negative_turk_matches_to_show)
