@@ -2,6 +2,7 @@ import argparse
 import csv
 import logging
 import re
+import string
 
 import numpy as np
 
@@ -24,6 +25,9 @@ class RPDRNote(object):
     def get_keys(self):
         return [self.empi, self.mrn_type, self.mrn, self.report_type,
                 self.report_number, self.report_date]
+
+    def remove_punctuation_from_note(self):
+        self.note = _remove_punctuation(self.note)
 
 
 class NotePhraseMatches(object):
@@ -88,6 +92,10 @@ def _extract_numerical_value(preceding_phrases, rpdr_note):
     return phrase_matches
 
 
+def _remove_punctuation(s):
+    return s.translate(None, string.punctuation)
+
+
 def _check_phrase_in_notes(phrases, rpdr_note):
     """Return a PhraseMatch object with the value as a binary 0/1 indicating
     whether one of the phrases was found in rpdr_note.note."""
@@ -114,11 +122,17 @@ def _check_phrase_in_notes(phrases, rpdr_note):
     return phrase_matches
 
 
-def _extract_values_from_rpdr_notes(rpdr_notes,
-                                    extract_numerical_value, phrases):
+def _extract_values_from_rpdr_notes(rpdr_notes, extract_numerical_value,
+                                    phrases, ignore_punctuation):
     """Return a list of NotePhraseMatches for each note in rpdr_notes."""
     note_phrase_matches = []
+    if ignore_punctuation:
+        logging.info('ignore_punctuation is True, so we will also ignore '
+                     'any punctuation in the entered phrases.')
+        phrases = [_remove_punctuation(phrase) for phrase in phrases]
     for rpdr_note in rpdr_notes:
+        if ignore_punctuation:
+            rpdr_note.remove_punctuation_from_note()
         if extract_numerical_value:
             phrase_matches = _extract_numerical_value(phrases, rpdr_note)
         else:
@@ -333,7 +347,7 @@ def _write_csv_output(note_phrase_matches, output_filename):
 
 def main(input_filename, output_filename, extract_numerical_value, phrases,
          report_description, report_type, group_by_patient, context_size,
-         turk_csv_filename, num_negative_matches_to_show):
+         ignore_punctuation, turk_csv_filename, num_negative_matches_to_show):
     rpdr_notes = _parse_rpdr_text_file(input_filename)
     rpdr_notes = _filter_rpdr_notes_by_column_val(
         rpdr_notes, report_description, report_type)
@@ -341,7 +355,7 @@ def main(input_filename, output_filename, extract_numerical_value, phrases,
         rpdr_notes = _group_rpdr_notes_by_patient(rpdr_notes)
 
     note_phrase_matches = _extract_values_from_rpdr_notes(
-        rpdr_notes, extract_numerical_value, phrases)
+        rpdr_notes, extract_numerical_value, phrases, ignore_punctuation)
     _write_csv_output(note_phrase_matches, output_filename)
 
     _write_turk_verification_csv(note_phrase_matches, extract_numerical_value,
@@ -389,6 +403,11 @@ if __name__ == '__main__':
         '--num_negative_turk_matches_to_show', type=int, default=0, help=(
             'Turk verification will ask to verify all positive matches, and '
             'up to this many negative matches.'))
+    parser.add_argument(
+        '--ignore_punctuation', default=False, action='store_true', help=(
+            'If specified, punctuation characters will be ignored when '
+            'finding a match. E.g. "full code confirmed" would also match '
+            '"full code (confirmed)" and "full code -- confirmed".'))
     parser.add_argument('--verbosity', '-v', action='count')
     args = parser.parse_args()
 
@@ -412,5 +431,5 @@ if __name__ == '__main__':
     main(args.input_filename, args.output_filename,
          args.extract_numerical_value, phrases,
          args.report_description, args.report_type, args.group_by_patient,
-         args.context_size,
+         args.context_size, args.ignore_punctuation,
          args.turk_csv_filename, args.num_negative_turk_matches_to_show)

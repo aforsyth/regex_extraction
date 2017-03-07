@@ -44,6 +44,8 @@ this filename that can be used to verify regex extraction with localturk.
 
 `num_negative_turk_matches_to_show`: By default, only positive matches are displayed in localturk for verification. Specify a number here to show up to that many negative matches, if needed, for example, to calculate false negatives in matching.
 
+`ignore_punctuation`: If specified, punctuation characters will be ignored when finding a match. E.g. "full code confirmed" would also match "full code (confirmed)" and "full code -- confirmed". Note that this option will also ignore punctuation in the entered phrases themselves (e.g. "g-tube" will be considered the same as "gtube").
+
 ### Localturk usage
 
 Install localturk from here: https://github.com/danvk/localturk
