@@ -55,29 +55,29 @@ class TestRegexPhraseMatch(unittest.TestCase):
 
     def test_dont_match_at_start_of_longer_word(self):
         phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['vent'], self.rpdr_note, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['vent'], self.rpdr_note, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(0, len(phrase_matches))
 
     def test_dont_match_at_end_of_longer_word(self):
         phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ate'], self.rpdr_note, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ate'], self.rpdr_note, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(0, len(phrase_matches))
 
     def test_dont_match_in_middle_of_longer_word(self):
         phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['tila'], self.rpdr_note, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['tila'], self.rpdr_note, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(0, len(phrase_matches))
 
     def test_match_exact_single_phrase_begin_and_end(self):
         phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], self.rpdr_note, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], self.rpdr_note, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -90,8 +90,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Number': '1231', 'MRN': '1231',
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, ' ventilate')
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -104,8 +104,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Number': '1231', 'MRN': '1231',
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, ' ventilate ')
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -119,8 +119,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, ' (ventilate).')
         rpdr_note2.remove_punctuation_from_note()
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -134,8 +134,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, '(ventilate).')
         rpdr_note2.remove_punctuation_from_note()
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -149,8 +149,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, ' ventilate.')
         rpdr_note2.remove_punctuation_from_note()
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -163,8 +163,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Number': '1231', 'MRN': '1231',
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, ' ventilate.')
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -177,8 +177,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Number': '1231', 'MRN': '1231',
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, ' ventilate?')
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -191,8 +191,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Number': '1231', 'MRN': '1231',
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, 'ventilate.')
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -206,8 +206,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, 'ventilate.')
         rpdr_note2.remove_punctuation_from_note()
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -220,8 +220,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Number': '1231', 'MRN': '1231',
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'}, 'ventilate?')
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         phrase_match = phrase_matches[0]
@@ -235,8 +235,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'},
             'ventilate ventilate')
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(2, len(phrase_matches))
         for phrase_match in phrase_matches:
@@ -250,8 +250,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'},
             'ventilate ventilate alex alex alex ventilate, ventilate alex')
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(4, len(phrase_matches))
         for phrase_match in phrase_matches:
@@ -265,8 +265,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'},
             'ventilate g-tube')
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            ['ventilate', 'g-tube'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, ['ventilate', 'g-tube'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(2, len(phrase_matches))
         self.assertEqual(0, phrase_matches[0].match_start)
@@ -286,8 +286,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
         phrases = [
             extract_values._remove_punctuation(phrase) for phrase in phrases]
         rpdr_note2.remove_punctuation_from_note()
-        note_phrase_matches = extract_values._check_phrase_in_notes(
-            phrases, rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            0, phrases, rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(2, len(phrase_matches))
         self.assertEqual(0, phrase_matches[0].match_start)
@@ -303,8 +303,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'},
             'ef 2.0')
-        note_phrase_matches = extract_values._extract_numerical_value(
-            ['ef'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            1, ['ef'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(1, len(phrase_matches))
         self.assertEqual(2.0, phrase_matches[0].extracted_value)
@@ -317,8 +317,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'},
             'ef 2.0 alex alex ef 20.0')
-        note_phrase_matches = extract_values._extract_numerical_value(
-            ['ef'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            1, ['ef'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(2, len(phrase_matches))
         self.assertEqual(2.0, phrase_matches[0].extracted_value)
@@ -332,8 +332,8 @@ class TestRegexPhraseMatch(unittest.TestCase):
              'Report_Type': 'report_type1',
              'Report_Description': 'report_description1'},
             'ef 2.0 alex alex ef 20.0 alex ejection fraction 4.0')
-        note_phrase_matches = extract_values._extract_numerical_value(
-            ['ef', 'ejection fraction'], rpdr_note2, phrase_match_context)
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            1, ['ef', 'ejection fraction'], rpdr_note2, phrase_match_context)
         phrase_matches = note_phrase_matches.phrase_matches
         self.assertEqual(3, len(phrase_matches))
         self.assertEqual(2.0, phrase_matches[0].extracted_value)

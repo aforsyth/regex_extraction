@@ -81,58 +81,31 @@ class PhraseMatchContexts(object):
             print '%d: %s' % (frequency, context)
 
 
-def _extract_numerical_value(preceding_phrases, rpdr_note, match_contexts):
-    """Return a numerical value preceded by the a set of phrases.
-
-    Return a PhraseMatch object for the extracted numerical value and the
-    phrase that matched rpdr_note.note.
-
-    Input:
-    preceding_phrases: a list of phrases or words indicating that the desired
-        numerical value will follow. E.g. this might be ["EF",
-        "ejection fraction", "LVEF"] for ejection fraction.
-    This can be used, for example, to extract lab values from free-text notes.
-    This looks for a string matching `preceding_phrase` followed by one of
-    the value_indicators (is, of, :), followed by a numerical value. For
-    example, if `preceding_phrase` is "EF" then it
-    could extract the numerical value 60 from "EF: 60%" or "EF is 60%".
-    If there are multiple pattern matches in the notes, the first match is
-    returned.
-    TODO(aforsyth): is first match the right behavior?
-    """
-    phrase_matches = NotePhraseMatches(rpdr_note)
-    for preceding_phrase in preceding_phrases:
-        pattern_string = ('(?:%s)\s*(?:of|is|\:)?[:]*[\s]*([0-9]'
-                          '+\.?[0-9]*)' % preceding_phrase)
-        re_flags = re.I | re.M | re.DOTALL
-        pattern = re.compile(pattern_string, flags=re_flags)
-        match_iter = pattern.finditer(rpdr_note.note)
-        try:
-            while True:
-                match = next(match_iter)
-                numerical_value = float(match.groups()[0])
-                new_match = PhraseMatch(numerical_value, match.start(),
-                                        match.end(), preceding_phrase)
-                phrase_matches.add_phrase_match(new_match)
-                match_contexts.add_match_context(
-                    rpdr_note.note, match.start(), match.end())
-        except StopIteration:
-            continue
-    phrase_matches.finalize_phrase_matches()
-    return phrase_matches
-
-
 def _remove_punctuation(s):
     return s.translate(None, string.punctuation)
 
 
-def _check_phrase_in_notes(phrases, rpdr_note, match_contexts):
+PHRASE_TYPE_WORD = 0
+PHRASE_TYPE_NUM = 1
+PHRASE_TYPE_DATE = 2
+
+
+def _extract_phrase_from_notes(
+        phrase_type, phrases, rpdr_note, match_contexts):
     """Return a PhraseMatch object with the value as a binary 0/1 indicating
     whether one of the phrases was found in rpdr_note.note."""
-    pattern_strings = [
-        '(\s%s\s)', '(^%s\s)', '(\s%s$)', '(^%s$)', '(\s%s[\,\.\?\!\-])',
-        '(^%s[\,\.\?\!\-])'
-    ]
+    if phrase_type == PHRASE_TYPE_WORD:
+        pattern_strings = [
+            '(\s%s\s)', '(^%s\s)', '(\s%s$)', '(^%s$)', '(\s%s[\,\.\?\!\-])',
+            '(^%s[\,\.\?\!\-])'
+        ]
+    elif phrase_type == PHRASE_TYPE_NUM:
+        pattern_strings = ['(?:%s)\s*(?:of|is|\:)?[:]*[\s]*([0-9]+\.?[0-9]*)']
+    elif phrase_type == PHRASE_TYPE_DATE:
+        pattern_strings = []
+    else:
+        raise Exception('Invalid phrase extraction type.')
+
     phrase_matches = NotePhraseMatches(rpdr_note)
     for phrase in phrases:
         for pattern_string in pattern_strings:
@@ -143,8 +116,14 @@ def _check_phrase_in_notes(phrases, rpdr_note, match_contexts):
             try:
                 while True:
                     match = next(match_iter)
-                    new_match = PhraseMatch(1, match.start(), match.end(),
-                                            phrase)
+                    if phrase_type == PHRASE_TYPE_WORD:
+                        extracted_value = 1
+                    elif phrase_type == PHRASE_TYPE_NUM:
+                        extracted_value = float(match.groups()[0])
+                    elif phrase_type == PHRASE_TYPE_DATE:
+                        raise
+                    new_match = PhraseMatch(extracted_value, match.start(),
+                                            match.end(), phrase)
                     phrase_matches.add_phrase_match(new_match)
                     match_contexts.add_match_context(
                         rpdr_note.note, match.start(), match.end())
@@ -169,11 +148,11 @@ def _extract_values_from_rpdr_notes(
         if ignore_punctuation:
             rpdr_note.remove_punctuation_from_note()
         if extract_numerical_value:
-            phrase_matches = _extract_numerical_value(
-                phrases, rpdr_note, match_contexts)
+            phrase_type = PHRASE_TYPE_NUM
         else:
-            phrase_matches = _check_phrase_in_notes(
-                phrases, rpdr_note, match_contexts)
+            phrase_type = PHRASE_TYPE_WORD
+        phrase_matches = _extract_phrase_from_notes(phrase_type, phrases,
+                                                    rpdr_note, match_contexts)
         note_phrase_matches.append(phrase_matches)
     match_contexts.print_ordered_contexts()
     return note_phrase_matches
