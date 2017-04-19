@@ -53,7 +53,35 @@ class PhraseMatch(object):
         self.phrase = phrase
 
 
-def _extract_numerical_value(preceding_phrases, rpdr_note):
+class PhraseMatchContexts(object):
+    """Keeps track of words before/after a phrase match."""
+    def __init__(self, n_words_before, n_words_after):
+        self.n_words_before = n_words_before
+        self.n_words_after = n_words_after
+        self.context_frequencies = {}
+
+    def add_match_context(self, note, match_start, match_end):
+        if self.n_words_before == 0 and self.n_words_after == 0:
+            return
+        match_word = note[match_start:match_end]
+        words_before = note[:match_start].split(' ')[-self.n_words_before:]
+        words_after = note[match_end:].split(' ')[:self.n_words_after]
+        context = ' '.join(words_before + [match_word] + words_after)
+        self.context_frequencies.setdefault(context, 0)
+        self.context_frequencies[context] += 1
+
+    def print_ordered_contexts(self):
+        if self.n_words_before == 0 and self.n_words_after == 0:
+            return
+        context_tuples = [(context, frequency) for context, frequency in
+                          self.context_frequencies.iteritems()]
+        context_tuples.sort(key=lambda x: x[1], reverse=True)
+        print 'Frequency: context'
+        for context, frequency in context_tuples:
+            print '%d: %s' % (frequency, context)
+
+
+def _extract_numerical_value(preceding_phrases, rpdr_note, match_contexts):
     """Return a numerical value preceded by the a set of phrases.
 
     Return a PhraseMatch object for the extracted numerical value and the
@@ -86,6 +114,8 @@ def _extract_numerical_value(preceding_phrases, rpdr_note):
                 new_match = PhraseMatch(numerical_value, match.start(),
                                         match.end(), preceding_phrase)
                 phrase_matches.add_phrase_match(new_match)
+                match_contexts.add_match_context(
+                    rpdr_note.note, match.start(), match.end())
         except StopIteration:
             continue
     phrase_matches.finalize_phrase_matches()
@@ -96,7 +126,7 @@ def _remove_punctuation(s):
     return s.translate(None, string.punctuation)
 
 
-def _check_phrase_in_notes(phrases, rpdr_note):
+def _check_phrase_in_notes(phrases, rpdr_note, match_contexts):
     """Return a PhraseMatch object with the value as a binary 0/1 indicating
     whether one of the phrases was found in rpdr_note.note."""
     pattern_strings = [
@@ -116,28 +146,36 @@ def _check_phrase_in_notes(phrases, rpdr_note):
                     new_match = PhraseMatch(1, match.start(), match.end(),
                                             phrase)
                     phrase_matches.add_phrase_match(new_match)
+                    match_contexts.add_match_context(
+                        rpdr_note.note, match.start(), match.end())
             except StopIteration:
                 continue
     phrase_matches.finalize_phrase_matches()
     return phrase_matches
 
 
-def _extract_values_from_rpdr_notes(rpdr_notes, extract_numerical_value,
-                                    phrases, ignore_punctuation):
+def _extract_values_from_rpdr_notes(
+        rpdr_notes, extract_numerical_value, phrases, ignore_punctuation,
+        show_n_words_context_before, show_n_words_context_after):
     """Return a list of NotePhraseMatches for each note in rpdr_notes."""
     note_phrase_matches = []
     if ignore_punctuation:
         logging.info('ignore_punctuation is True, so we will also ignore '
                      'any punctuation in the entered phrases.')
         phrases = [_remove_punctuation(phrase) for phrase in phrases]
+    match_contexts = PhraseMatchContexts(
+        show_n_words_context_before, show_n_words_context_after)
     for rpdr_note in rpdr_notes:
         if ignore_punctuation:
             rpdr_note.remove_punctuation_from_note()
         if extract_numerical_value:
-            phrase_matches = _extract_numerical_value(phrases, rpdr_note)
+            phrase_matches = _extract_numerical_value(
+                phrases, rpdr_note, match_contexts)
         else:
-            phrase_matches = _check_phrase_in_notes(phrases, rpdr_note)
+            phrase_matches = _check_phrase_in_notes(
+                phrases, rpdr_note, match_contexts)
         note_phrase_matches.append(phrase_matches)
+    match_contexts.print_ordered_contexts()
     return note_phrase_matches
 
 
@@ -310,8 +348,11 @@ def _write_turk_verification_csv(phrase_matches_by_note,
 
     num_negative_matches_to_show = min(num_negative_matches_to_show,
                                        len(non_match_notes))
-    negative_matches_to_show = np.random.choice(
-        non_match_notes, num_negative_matches_to_show)
+    if non_match_notes:
+        negative_matches_to_show = np.random.choice(
+            non_match_notes, num_negative_matches_to_show)
+    else:
+        negative_matches_to_show = []
     for note_phrase_matches in negative_matches_to_show:
         html_note = _html_clean_rpdr_note(note_phrase_matches.rpdr_note.note)
         extracted_value = None
@@ -347,7 +388,8 @@ def _write_csv_output(note_phrase_matches, output_filename):
 
 def main(input_filename, output_filename, extract_numerical_value, phrases,
          report_description, report_type, group_by_patient, context_size,
-         ignore_punctuation, turk_csv_filename, num_negative_matches_to_show):
+         ignore_punctuation, turk_csv_filename, num_negative_matches_to_show,
+         show_n_words_context_before, show_n_words_context_after):
     rpdr_notes = _parse_rpdr_text_file(input_filename)
     rpdr_notes = _filter_rpdr_notes_by_column_val(
         rpdr_notes, report_description, report_type)
@@ -355,7 +397,8 @@ def main(input_filename, output_filename, extract_numerical_value, phrases,
         rpdr_notes = _group_rpdr_notes_by_patient(rpdr_notes)
 
     note_phrase_matches = _extract_values_from_rpdr_notes(
-        rpdr_notes, extract_numerical_value, phrases, ignore_punctuation)
+        rpdr_notes, extract_numerical_value, phrases, ignore_punctuation,
+        show_n_words_context_before, show_n_words_context_after)
     _write_csv_output(note_phrase_matches, output_filename)
 
     _write_turk_verification_csv(note_phrase_matches, extract_numerical_value,
@@ -409,6 +452,20 @@ if __name__ == '__main__':
             'finding a match. E.g. "full code confirmed" would also match '
             '"full code (confirmed)" and "full code -- confirmed".'))
     parser.add_argument('--verbosity', '-v', action='count')
+    parser.add_argument(
+        '--show_n_words_context_before', type=int, default=0,
+        help=(
+            'If specified, N words of context will be printed to the '
+            'console prior to each text match in order of and along with '
+            'their frequency of occuring in the text.'))
+    parser.add_argument(
+        '--show_n_words_context_after', default=0, type=int,
+        help=(
+            'If specified, N words of context will be printed to the '
+            'console after each text match in order of and along with '
+            'their frequency of occuring in the text.'))
+    parser.add_argument('--v', action='count')
+
     args = parser.parse_args()
 
     if args.verbosity == 1:
@@ -432,4 +489,5 @@ if __name__ == '__main__':
          args.extract_numerical_value, phrases,
          args.report_description, args.report_type, args.group_by_patient,
          args.context_size, args.ignore_punctuation,
-         args.turk_csv_filename, args.num_negative_turk_matches_to_show)
+         args.turk_csv_filename, args.num_negative_turk_matches_to_show,
+         args.show_n_words_context_before, args.show_n_words_context_after)

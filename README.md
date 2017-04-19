@@ -46,6 +46,11 @@ this filename that can be used to verify regex extraction with localturk.
 
 `ignore_punctuation`: If specified, punctuation characters will be ignored when finding a match. E.g. "full code confirmed" would also match "full code (confirmed)" and "full code -- confirmed". Note that this option will also ignore punctuation in the entered phrases themselves (e.g. "g-tube" will be considered the same as "gtube").
 
+`show_n_words_context_before`: If this or `show_n_words_context_after` is specified and nonzero, the context in which the
+desired phrase was found including up to n words before and n words after the actual phrase will be displayed in decreasing order of the frequency of that context string in the notes.
+
+`show_n_words_context_after`: See above.
+
 ### Localturk usage
 
 Install localturk from here: https://github.com/danvk/localturk
@@ -54,7 +59,7 @@ Run `localturk --static_dir . localturk/extract.html localturk/tasks.csv localtu
 
 ### Note Filtering Usage
 
-`filter_notes.py` allows you to filter an RPDR note file to include only notes from patients of interest and only notes for those patients within a specified time range. This could be used, for example, to find notes for a patient that are within X days before and Y days after a certain procedure.
+`filter_notes.py` allows you to filter an RPDR note file to include only notes from patients of interest and only notes for those patients within a specified time range. This could be used, for example, to find notes for a patient that are within X days before and Y days after a certain procedure. Note that if you want notes within Z days after and Y days after the procedure, for example, between 30 days and 60 days after the procedure, days_before would be -Z or -30 days and days_after would be 60 days, meaning that all notes within -30 days before (i.e. 30 days after) and 60 days after the procedure would be included.
 
 Running `python filter_notes.py rpdr_filename filter_csv_filename` will output a RPDR notes file of the same format as the origin, but filtered as described. It will write this new file to the same filename as the input file, but with "_filtered" added to the same before the file extension. Optionally, you can specify the output filename with `--output_filename`.
 
