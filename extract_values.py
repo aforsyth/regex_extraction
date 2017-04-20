@@ -12,6 +12,7 @@ PHRASE_TYPE_DATE = 2
 
 
 class RPDRNote(object):
+    """Works for Lno, Dis, Rad, and Opn RPDR files."""
     def __init__(self, rpdr_column_name_to_key, rpdr_note):
         self.empi = rpdr_column_name_to_key['EMPI']
         self.mrn_type = rpdr_column_name_to_key['MRN_Type']
