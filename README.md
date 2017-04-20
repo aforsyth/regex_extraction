@@ -74,3 +74,9 @@ empi,procedure_date,days_before,days_after,include
 1121,5/13/2016,10,10,0
 
 Patients with a 0 for include will not be included in the output notes file.
+
+### DFCI to RPDR Converter
+
+`convert_dfci_to_rpdr.py` converts a DFCI epic clinical notes file to an lno RPDR formatted file, which can be used with the other regex_extraction tools.
+
+Running `python convert_dfci_to_rpdr.py input_dfci_filename output_rpdr_filename` will convert the DFCI formatted file, `input_dfci_filename` to RPDR format and write the output file to `output_rpdr_filename`. Note that this converter will skip DFCI file entries with no date of service entered.
