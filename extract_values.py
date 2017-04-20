@@ -6,6 +6,10 @@ import string
 
 import numpy as np
 
+PHRASE_TYPE_WORD = 0
+PHRASE_TYPE_NUM = 1
+PHRASE_TYPE_DATE = 2
+
 
 class RPDRNote(object):
     def __init__(self, rpdr_column_name_to_key, rpdr_note):
@@ -85,11 +89,6 @@ def _remove_punctuation(s):
     return s.translate(None, string.punctuation)
 
 
-PHRASE_TYPE_WORD = 0
-PHRASE_TYPE_NUM = 1
-PHRASE_TYPE_DATE = 2
-
-
 def _extract_phrase_from_notes(
         phrase_type, phrases, rpdr_note, match_contexts):
     """Return a PhraseMatch object with the value as a binary 0/1 indicating
@@ -100,9 +99,12 @@ def _extract_phrase_from_notes(
             '(^%s[\,\.\?\!\-])'
         ]
     elif phrase_type == PHRASE_TYPE_NUM:
-        pattern_strings = ['(?:%s)\s*(?:of|is|\:)?[:]*[\s]*([0-9]+\.?[0-9]*)']
+        pattern_strings = [
+            '(?:%s)\s*(?:of|is|was|were|are|\:)?[:]*[\s]*([0-9]+\.?[0-9]*)']
     elif phrase_type == PHRASE_TYPE_DATE:
-        pattern_strings = []
+        pattern_strings = [
+            '(?:%s)\s*(?:of|is|was|were|are|\:)?[:]*[\s]*(\d+/\d+/\d+)',
+            '(?:%s)\s*(?:of|is|was|were|are|\:)?[:]*[\s]*(\d+-\d+-\d+)']
     else:
         raise Exception('Invalid phrase extraction type.')
 
@@ -121,7 +123,7 @@ def _extract_phrase_from_notes(
                     elif phrase_type == PHRASE_TYPE_NUM:
                         extracted_value = float(match.groups()[0])
                     elif phrase_type == PHRASE_TYPE_DATE:
-                        raise
+                        extracted_value = match.groups()[0]
                     new_match = PhraseMatch(extracted_value, match.start(),
                                             match.end(), phrase)
                     phrase_matches.add_phrase_match(new_match)
@@ -134,7 +136,7 @@ def _extract_phrase_from_notes(
 
 
 def _extract_values_from_rpdr_notes(
-        rpdr_notes, extract_numerical_value, phrases, ignore_punctuation,
+        rpdr_notes, phrase_type, phrases, ignore_punctuation,
         show_n_words_context_before, show_n_words_context_after):
     """Return a list of NotePhraseMatches for each note in rpdr_notes."""
     note_phrase_matches = []
@@ -147,10 +149,6 @@ def _extract_values_from_rpdr_notes(
     for rpdr_note in rpdr_notes:
         if ignore_punctuation:
             rpdr_note.remove_punctuation_from_note()
-        if extract_numerical_value:
-            phrase_type = PHRASE_TYPE_NUM
-        else:
-            phrase_type = PHRASE_TYPE_WORD
         phrase_matches = _extract_phrase_from_notes(phrase_type, phrases,
                                                     rpdr_note, match_contexts)
         note_phrase_matches.append(phrase_matches)
@@ -269,10 +267,9 @@ def _html_clean_rpdr_note(html_note):
     return html_note
 
 
-def _write_turk_verification_csv(phrase_matches_by_note,
-                                 extract_numerical_value,
-                                 phrases, context_size, turk_csv_name,
-                                 num_negative_matches_to_show=0):
+def _write_turk_verification_csv(
+        phrase_matches_by_note, phrases, context_size, turk_csv_name,
+        num_negative_matches_to_show=0):
     """Convert the notes to HTML with regex extracted value bolded.
 
     Return only rows for which there was a value extracted. I.e. if extracting
@@ -365,7 +362,7 @@ def _write_csv_output(note_phrase_matches, output_filename):
         csv_writer.writerows(rpdr_rows_with_regex_value)
 
 
-def main(input_filename, output_filename, extract_numerical_value, phrases,
+def main(input_filename, output_filename, phrase_type, phrases,
          report_description, report_type, group_by_patient, context_size,
          ignore_punctuation, turk_csv_filename, num_negative_matches_to_show,
          show_n_words_context_before, show_n_words_context_after):
@@ -376,13 +373,13 @@ def main(input_filename, output_filename, extract_numerical_value, phrases,
         rpdr_notes = _group_rpdr_notes_by_patient(rpdr_notes)
 
     note_phrase_matches = _extract_values_from_rpdr_notes(
-        rpdr_notes, extract_numerical_value, phrases, ignore_punctuation,
+        rpdr_notes, phrase_type, phrases, ignore_punctuation,
         show_n_words_context_before, show_n_words_context_after)
     _write_csv_output(note_phrase_matches, output_filename)
 
-    _write_turk_verification_csv(note_phrase_matches, extract_numerical_value,
-                                 phrases, context_size, turk_csv_filename,
-                                 num_negative_matches_to_show)
+    _write_turk_verification_csv(
+        note_phrase_matches, phrases, context_size, turk_csv_filename,
+        num_negative_matches_to_show)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -394,6 +391,10 @@ if __name__ == '__main__':
                               ' ./output.csv'))
     parser.add_argument('--extract_numerical_value', action='store_true',
                         default=False, help=('Extracts a numerical value if'
+                                             ' specified. Else, checks for '
+                                             'presence of the phrase.'))
+    parser.add_argument('--extract_date', action='store_true',
+                        default=False, help=('Extracts a date if'
                                              ' specified. Else, checks for '
                                              'presence of the phrase.'))
     parser.add_argument('--phrases', required=True, help=(
@@ -464,8 +465,18 @@ if __name__ == '__main__':
                    args.output_filename))
     phrases = args.phrases.split(',')
 
-    main(args.input_filename, args.output_filename,
-         args.extract_numerical_value, phrases,
+    if args.extract_numerical_value and args.extract_date:
+        raise Exception('Cannot both extract_numerical_value and extract_date'
+                        '. Choose one option.')
+
+    if args.extract_numerical_value:
+        phrase_type = PHRASE_TYPE_NUM
+    elif args.extract_date:
+        phrase_type = PHRASE_TYPE_DATE
+    else:
+        phrase_type = PHRASE_TYPE_WORD
+
+    main(args.input_filename, args.output_filename, phrase_type, phrases,
          args.report_description, args.report_type, args.group_by_patient,
          args.context_size, args.ignore_punctuation,
          args.turk_csv_filename, args.num_negative_turk_matches_to_show,

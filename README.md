@@ -26,7 +26,9 @@ The example will extract the value 60 from notes including "EF is 60" or "EF: 60
 
 `output_filename`: path to the output CSV file, which has one row per record in the input file with the following columns: EMPI, MRN_Type, MRN, Report_Number, Report_Date_Time, Report_Description, Report_Type and regex result
 
-`extract_numerical_value`: True if extraction a numerical value, False if only checking whether the notes contain a phrase (i.e. a boolean 0 or 1). Defaults to False.
+`extract_numerical_value`: True if extracting a numerical value, False if only checking whether the notes contain a phrase (i.e. a boolean 0 or 1). Defaults to False.
+
+`extract_date`: True if extracting a date. Note, both this and `extract_numerical_value` cannot be True at the same time. Matches dates of formats: "MM/DD/YY, MM/DD/YYYY, M/D/YY, MM-DD-YYYY, etc."
 
 `phrases`: A list of comma separated phrases to check for either preceding the numerical value, or to check for their presence. The output will return numerical values following
 any of the phrases in the supplied list. Example: "phrase1,phrase2,phrase3"

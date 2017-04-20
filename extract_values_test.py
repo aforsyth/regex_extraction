@@ -309,6 +309,76 @@ class TestRegexPhraseMatch(unittest.TestCase):
         self.assertEqual(1, len(phrase_matches))
         self.assertEqual(2.0, phrase_matches[0].extracted_value)
 
+    def test_extract_date_forward_slash(self):
+        phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'date is 02/22/2222')
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            2, ['date'], rpdr_note2, phrase_match_context)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(1, len(phrase_matches))
+        self.assertEqual('02/22/2222', phrase_matches[0].extracted_value)
+
+    def test_extract_date_dash(self):
+        phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'date is 02-22-2222')
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            2, ['date'], rpdr_note2, phrase_match_context)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(1, len(phrase_matches))
+        self.assertEqual('02-22-2222', phrase_matches[0].extracted_value)
+
+    def test_extract_date_two_digit_year(self):
+        phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'date is 02-22-22')
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            2, ['date'], rpdr_note2, phrase_match_context)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(1, len(phrase_matches))
+        self.assertEqual('02-22-22', phrase_matches[0].extracted_value)
+
+    def test_extract_date_one_digit_month(self):
+        phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'date is 2-22-22')
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            2, ['date'], rpdr_note2, phrase_match_context)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(1, len(phrase_matches))
+        self.assertEqual('2-22-22', phrase_matches[0].extracted_value)
+
+    def test_extract_date_one_digit_day(self):
+        phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
+        rpdr_note2 = extract_values.RPDRNote(
+            {'EMPI': 'empi1', 'MRN_Type': 'mrn_type1',
+             'Report_Number': '1231', 'MRN': '1231',
+             'Report_Type': 'report_type1',
+             'Report_Description': 'report_description1'},
+            'date is 2-2-22')
+        note_phrase_matches = extract_values._extract_phrase_from_notes(
+            2, ['date'], rpdr_note2, phrase_match_context)
+        phrase_matches = note_phrase_matches.phrase_matches
+        self.assertEqual(1, len(phrase_matches))
+        self.assertEqual('2-2-22', phrase_matches[0].extracted_value)
+
     def test_extract_multiple_numerical(self):
         phrase_match_context = extract_values.PhraseMatchContexts(0, 0)
         rpdr_note2 = extract_values.RPDRNote(
