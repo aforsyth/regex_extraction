@@ -55,7 +55,7 @@ def convert_notes(input_filename):
         if 'NOTE_TXT' not in row:
             print row.keys()
             raise
-        comments = '\n' + row['NOTE_TXT'] + '\n[report end]'
+        comments = '\n' + row['NOTE_TXT'] + '\n[report_end]'
         empi = 'DFCI_PATIENT_ID_' + row['#PATIENT_ID']
         mrn_type = 'DFCI'
         report_number = row['NOTE_ID']
