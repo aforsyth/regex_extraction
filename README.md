@@ -20,7 +20,7 @@ Example:
 
 `python extract_values.py "/path/to/input_file.txt" --extract_numerical_value True --phrases "EF"`
 
-The example will extract the value 60 from notes including "EF is 60" or "EF: 60", for example. Note that phrase is case insenstive. When extracting numerical values following a phrase, anything like "[phrase] [num]", [phrase] is [num]", "[phrase] of [num]", "phrase: [num]" will be matched.
+The example will extract the value 60 from notes including "EF is 60" or "EF: 60", for example. Note that phrase is case insensitive. When extracting numerical values following a phrase, anything like "[phrase] [num]", [phrase] is [num]", "[phrase] of [num]", "phrase: [num]" will be matched.
 
 `input_filename`: a path to an RPDR-formatted EHR text file.
 
